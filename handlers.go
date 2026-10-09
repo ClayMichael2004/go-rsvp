@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/mail"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -24,10 +26,26 @@ func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
+
+	req.Name = strings.TrimSpace(req.Name)
+	req.Email = strings.TrimSpace(req.Email)
+
 	if req.Name == "" || req.Email == "" || req.Attending == nil {
 		http.Error(w, "Required fields are missing: name, email, attending", http.StatusBadRequest)
 		return
 	}
+
+	parsedEmail, err := mail.ParseAddress(req.Email)
+	if err != nil {
+		http.Error(w, "Invalid email format", http.StatusBadRequest)
+		return
+	}
+	parts := strings.Split(parsedEmail.Address, "@")
+	if len(parts) != 2 || !strings.Contains(parts[1], ".") || len(parts[0]) == 0 {
+		http.Error(w, "Invalid email domain format", http.StatusBadRequest)
+		return
+	}
+	req.Email = strings.ToLower(parsedEmail.Address)
 
 	if req.GuestsCount < 0 {
 		http.Error(w, "guests_count cannot be negative", http.StatusBadRequest)
@@ -48,13 +66,14 @@ func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	query := `
-	INSERT INTO rsvps(name, email, attending, guests_count, updated_at)
-	VALUES($1, $2, $3, $4, CURRENT_TIMESTAMP)
+	INSERT INTO rsvps (name, email, attending, guests_count, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	ON CONFLICT (email) DO UPDATE
-	SET attending=EXCLUDED.attending,
-		guests_count=EXCLUDED.guests_count,
-		name= EXCLUDED.name
-	RETURNING id, created_at;
+	SET attending = EXCLUDED.attending,
+	    guests_count = EXCLUDED.guests_count,
+	    name = EXCLUDED.name,
+	    updated_at = CURRENT_TIMESTAMP
+	RETURNING id, created_at, updated_at;
 	`
 
 	var rsvp RSVP
@@ -63,14 +82,15 @@ func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 	rsvp.Attending = *req.Attending
 	rsvp.GuestsCount = req.GuestsCount
 
-	err := s.DB.QueryRow(ctx, query, rsvp.Name, rsvp.Email, rsvp.Attending, rsvp.GuestsCount).Scan(&rsvp.ID, &rsvp.CreatedAt)
+	err = s.DB.QueryRow(ctx, query, rsvp.Name, rsvp.Email, rsvp.Attending, rsvp.GuestsCount).
+		Scan(&rsvp.ID, &rsvp.CreatedAt, &rsvp.UpdatedAt)
 	if err != nil {
 		http.Error(w, "Failed to record RSVP: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(rsvp)
 }
 
