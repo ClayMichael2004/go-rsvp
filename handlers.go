@@ -84,7 +84,7 @@ func (s *Server) HandleListRSVPs(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	rows, err := s.DB.Query(ctx, `
-		SELECT id, name, email, attending, guests_count, created_at 
+		SELECT id, name, email, attending, guests_count, created_at, updated_at 
 		FROM rsvps 
 		ORDER BY created_at DESC;
 	`)
@@ -94,10 +94,10 @@ func (s *Server) HandleListRSVPs(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var rsvps []RSVP = []RSVP{}
+	rsvps := make([]RSVP, 0)
 	for rows.Next() {
 		var item RSVP
-		if err := rows.Scan(&item.ID, &item.Name, &item.Email, &item.Attending, &item.GuestsCount, &item.CreatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.Name, &item.Email, &item.Attending, &item.GuestsCount, &item.CreatedAt, &item.UpdatedAt); err != nil {
 			http.Error(w, "Failed to parse records", http.StatusInternalServerError)
 			return
 		}
