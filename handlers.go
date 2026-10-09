@@ -29,12 +29,27 @@ func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.GuestsCount < 0 {
+		http.Error(w, "guests_count cannot be negative", http.StatusBadRequest)
+		return
+	}
+
+	if !*req.Attending && req.GuestsCount > 0 {
+		http.Error(w, "Cannot specify guests if attending is false", http.StatusBadRequest)
+		return
+	}
+
+	if req.GuestsCount > 5 {
+		http.Error(w, "Exceeded maximum allowed guests (max 5)", http.StatusBadRequest)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
 	query := `
-	INSERT INTO rsvps(name, email, attending, guests_count)
-	VALUES($1, $2, $3, $4)
+	INSERT INTO rsvps(name, email, attending, guests_count, updated_at)
+	VALUES($1, $2, $3, $4, CURRENT_TIMESTAMP)
 	ON CONFLICT (email) DO UPDATE
 	SET attending=EXCLUDED.attending,
 		guests_count=EXCLUDED.guests_count,
