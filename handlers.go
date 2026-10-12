@@ -206,6 +206,57 @@ func (s *Server) HandleAdminMe(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) HandleIndex(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	data, err := os.ReadFile("static/index.html")
+	if err != nil {
+		data, err = staticFS.ReadFile("static/index.html")
+		if err != nil {
+			http.Error(w, "Page not found", http.StatusNotFound)
+			return
+		}
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+func (s *Server) HandleAdmin(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/admin" && r.URL.Path != "/admin/" {
+		http.NotFound(w, r)
+		return
+	}
+	data, err := os.ReadFile("static/admin.html")
+	if err != nil {
+		data, err = staticFS.ReadFile("static/admin.html")
+		if err != nil {
+			http.Error(w, "Admin page not found", http.StatusNotFound)
+			return
+		}
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+func (s *Server) HandleStatic(w http.ResponseWriter, r *http.Request) {
+	cleanPath := path.Clean(r.URL.Path)
+	diskPath := strings.TrimPrefix(cleanPath, "/")
+	if data, err := os.ReadFile(diskPath); err == nil {
+		http.ServeContent(w, r, path.Base(diskPath), time.Now(), bytes.NewReader(data))
+		return
+	}
+	data, err := staticFS.ReadFile(strings.TrimPrefix(cleanPath, "/"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeContent(w, r, path.Base(cleanPath), time.Now(), bytes.NewReader(data))
+}
+
 func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
