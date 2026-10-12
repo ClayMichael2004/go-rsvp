@@ -3,20 +3,28 @@ package main
 import "time"
 
 type RSVP struct {
-	ID          int       `json:"id"`
-	Name        string    `json:"name"`
-	Email       string    `json:"email"`
-	Attending   bool      `json:"attending"`
-	GuestsCount int       `json:"guests_count"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID            int       `json:"id"`
+	EventID       *int      `json:"event_id,omitempty"`
+	Name          string    `json:"name"`
+	Email         string    `json:"email"`
+	Dietary       string    `json:"dietary,omitempty"`
+	Attending     bool      `json:"attending"`
+	GuestsCount   int       `json:"guests_count"`
+	GuestDetails  []string  `json:"guest_details"`
+	DeclineReason string    `json:"decline_reason"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type CreateRSVPRequest struct {
-	Name        string `json:"name"`
-	Email       string `json:"email"`
-	Attending   *bool  `json:"attending"`
-	GuestsCount int    `json:"guests_count"`
+	EventID       *int     `json:"event_id,omitempty"`
+	Name          string   `json:"name"`
+	Email         string   `json:"email"`
+	Dietary       string   `json:"dietary,omitempty"`
+	Attending     *bool    `json:"attending"`
+	GuestsCount   int      `json:"guests_count"`
+	GuestDetails  []string `json:"guest_details,omitempty"`
+	DeclineReason string   `json:"decline_reason,omitempty"`
 }
 
 type RSVPStats struct {
