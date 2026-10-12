@@ -28,10 +28,10 @@ func setupTestServer(t *testing.T) (*httptest.Server, func()) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := pool.Exec(ctx, "TRUNCATE TABLE rsvps RESTART IDENTITY CASCADE;")
+	_, err := pool.Exec(ctx, "TRUNCATE TABLE rsvps, events, admin_sessions RESTART IDENTITY CASCADE;")
 	if err != nil {
 		pool.Close()
-		t.Fatalf("Failed to truncate rsvps table: %v", err)
+		t.Fatalf("Failed to truncate test tables: %v", err)
 	}
 
 	srv := &Server{DB: pool}
@@ -52,6 +52,12 @@ func setupTestServer(t *testing.T) (*httptest.Server, func()) {
 	mux.HandleFunc("POST /rsvp", srv.HandleCreateRSVP)
 	mux.HandleFunc("GET /rsvp", srv.HandleListRSVPs)
 	mux.HandleFunc("GET /rsvp/stats", srv.HandleRSVPStats)
+	mux.HandleFunc("POST /events", srv.HandleCreateEvent)
+	mux.HandleFunc("GET /events", srv.HandleListEvents)
+	mux.HandleFunc("GET /events/detail", srv.HandleGetEventDetail)
+	mux.HandleFunc("POST /admin/login", srv.HandleAdminLogin)
+	mux.HandleFunc("POST /admin/logout", srv.HandleAdminLogout)
+	mux.HandleFunc("GET /admin/me", srv.HandleAdminMe)
 
 	handler := recoverMiddleware(TracingMiddleware(LoggingMiddleware(mux)))
 	ts := httptest.NewServer(handler)
@@ -414,6 +420,341 @@ func TestE2E_RSVPSuite(t *testing.T) {
 
 		if raceCount != 1 {
 			t.Fatalf("Expected exactly 1 row for race@example.com due to upsert constraint, found %d", raceCount)
+		}
+	})
+	t.Run("Admin Authentication Flow", func(t *testing.T) {
+		// 1. Unauthenticated /admin/me should return 401
+		meResp, err := client.Get(ts.URL + "/admin/me")
+		if err != nil {
+			t.Fatalf("Failed to request /admin/me: %v", err)
+		}
+		meResp.Body.Close()
+		if meResp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("Expected 401 for unauthenticated /admin/me, got %d", meResp.StatusCode)
+		}
+
+		// 2. Bad credentials should return 401
+		badLogin := `{"username":"admin","password":"wrongpassword"}`
+		badResp, err := client.Post(ts.URL+"/admin/login", "application/json", strings.NewReader(badLogin))
+		if err != nil {
+			t.Fatalf("Failed bad login: %v", err)
+		}
+		badResp.Body.Close()
+		if badResp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("Expected 401 for invalid password, got %d", badResp.StatusCode)
+		}
+
+		// 3. Valid login returns token and cookie
+		goodLogin := `{"username":"admin","password":"admin123"}`
+		loginResp, err := client.Post(ts.URL+"/admin/login", "application/json", strings.NewReader(goodLogin))
+		if err != nil {
+			t.Fatalf("Failed login: %v", err)
+		}
+		defer loginResp.Body.Close()
+		if loginResp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 for valid login, got %d", loginResp.StatusCode)
+		}
+		var loginData AdminLoginResponse
+		_ = json.NewDecoder(loginResp.Body).Decode(&loginData)
+		if !loginData.Success || loginData.Token == "" || loginData.Username != "admin" {
+			t.Fatalf("Unexpected login response: %+v", loginData)
+		}
+
+		// Check cookie in response
+		var sessionCookie *http.Cookie
+		for _, c := range loginResp.Cookies() {
+			if c.Name == "admin_session" {
+				sessionCookie = c
+				break
+			}
+		}
+		if sessionCookie == nil || sessionCookie.Value != loginData.Token {
+			t.Fatalf("Expected admin_session cookie with token value")
+		}
+
+		// 4. Authenticated /admin/me with Bearer token
+		meReq, _ := http.NewRequest(http.MethodGet, ts.URL+"/admin/me", nil)
+		meReq.Header.Set("Authorization", "Bearer "+loginData.Token)
+		meAuthResp, err := client.Do(meReq)
+		if err != nil {
+			t.Fatalf("Failed /admin/me with token: %v", err)
+		}
+		if meAuthResp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 for authenticated /admin/me, got %d", meAuthResp.StatusCode)
+		}
+		var checkResp AdminCheckResponse
+		_ = json.NewDecoder(meAuthResp.Body).Decode(&checkResp)
+		meAuthResp.Body.Close()
+		if !checkResp.Authenticated || checkResp.Username != "admin" {
+			t.Fatalf("Unexpected check response: %+v", checkResp)
+		}
+
+		// 5. Logout
+		logoutReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/admin/logout", nil)
+		logoutReq.Header.Set("Authorization", "Bearer "+loginData.Token)
+		logoutResp, err := client.Do(logoutReq)
+		if err != nil {
+			t.Fatalf("Failed /admin/logout: %v", err)
+		}
+		logoutResp.Body.Close()
+		if logoutResp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 for logout, got %d", logoutResp.StatusCode)
+		}
+
+		// 6. After logout, session is invalid
+		meAfterReq, _ := http.NewRequest(http.MethodGet, ts.URL+"/admin/me", nil)
+		meAfterReq.Header.Set("Authorization", "Bearer "+loginData.Token)
+		meAfterResp, err := client.Do(meAfterReq)
+		if err != nil {
+			t.Fatalf("Failed /admin/me after logout: %v", err)
+		}
+		meAfterResp.Body.Close()
+		if meAfterResp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("Expected 401 for /admin/me after logout, got %d", meAfterResp.StatusCode)
+		}
+	})
+
+	t.Run("Events and Extended RSVP Suite", func(t *testing.T) {
+		eventReq := CreateEventRequest{
+			Title:       "Annual Gala 2026",
+			Slug:        "annual-gala-2026",
+			Description: "Annual celebration and awards",
+			EventDate:   "Nov 20, 2026 at 6:00 PM",
+			Location:    "Kenyatta International Convention Centre",
+			RespondBy:   "Nov 5, 2026",
+		}
+		b, _ := json.Marshal(eventReq)
+
+		// Unauthenticated attempt should fail
+		unauthResp, err := client.Post(ts.URL+"/events", "application/json", bytes.NewReader(b))
+		if err != nil {
+			t.Fatalf("Failed unauthenticated event post: %v", err)
+		}
+		unauthResp.Body.Close()
+		if unauthResp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("Expected 401 for unauthenticated event creation, got %d", unauthResp.StatusCode)
+		}
+
+		// Login to get token
+		loginPayload := `{"username":"admin","password":"admin123"}`
+		lResp, err := client.Post(ts.URL+"/admin/login", "application/json", strings.NewReader(loginPayload))
+		if err != nil {
+			t.Fatalf("Failed admin login: %v", err)
+		}
+		var loginData AdminLoginResponse
+		_ = json.NewDecoder(lResp.Body).Decode(&loginData)
+		lResp.Body.Close()
+
+		// 1. Create an Event with Bearer token
+		createReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/events", bytes.NewReader(b))
+		createReq.Header.Set("Content-Type", "application/json")
+		createReq.Header.Set("Authorization", "Bearer "+loginData.Token)
+
+		evResp, err := client.Do(createReq)
+		if err != nil {
+			t.Fatalf("Failed to create event: %v", err)
+		}
+		if evResp.StatusCode != http.StatusCreated {
+			t.Fatalf("Expected 201 Created for event, got %d", evResp.StatusCode)
+		}
+		var createdEv Event
+		_ = json.NewDecoder(evResp.Body).Decode(&createdEv)
+		evResp.Body.Close()
+
+		if createdEv.ID == 0 || createdEv.Slug != "annual-gala-2026" {
+			t.Fatalf("Unexpected created event: %+v", createdEv)
+		}
+
+		// 2. Fetch Event Detail
+		detailResp, err := client.Get(ts.URL + "/events/detail?slug=annual-gala-2026")
+		if err != nil {
+			t.Fatalf("Failed to get event detail: %v", err)
+		}
+		if detailResp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 OK for event detail, got %d", detailResp.StatusCode)
+		}
+		var detail EventDetailResponse
+		_ = json.NewDecoder(detailResp.Body).Decode(&detail)
+		detailResp.Body.Close()
+
+		if detail.Event.Title != "Annual Gala 2026" {
+			t.Fatalf("Expected event title 'Annual Gala 2026', got '%s'", detail.Event.Title)
+		}
+
+		// 3. RSVP with Additional Guests details
+		rsvpWithGuests := CreateRSVPRequest{
+			EventID:      &createdEv.ID,
+			Name:         "Sophia Adams",
+			Email:        "sophia@example.com",
+			Attending:    boolPtr(true),
+			GuestsCount:  2,
+			GuestDetails: []string{"Liam Adams - Vegetarian", "Noah Adams - Child"},
+		}
+		bGuests, _ := json.Marshal(rsvpWithGuests)
+		rResp, err := client.Post(ts.URL+"/rsvp", "application/json", bytes.NewReader(bGuests))
+		if err != nil {
+			t.Fatalf("Failed to create RSVP with guests: %v", err)
+		}
+		if rResp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 OK, got %d", rResp.StatusCode)
+		}
+		var savedRSVP RSVP
+		_ = json.NewDecoder(rResp.Body).Decode(&savedRSVP)
+		rResp.Body.Close()
+
+		if savedRSVP.GuestsCount != 2 {
+			t.Fatalf("Expected 2 guests, got %d", savedRSVP.GuestsCount)
+		}
+		if len(savedRSVP.GuestDetails) != 2 || savedRSVP.GuestDetails[0] != "Liam Adams - Vegetarian" {
+			t.Fatalf("Expected guest details to be preserved, got %+v", savedRSVP.GuestDetails)
+		}
+
+		// 4. RSVP with Decline Reason
+		rsvpDeclined := CreateRSVPRequest{
+			EventID:       &createdEv.ID,
+			Name:          "Daniel Brown",
+			Email:         "daniel@example.com",
+			Attending:     boolPtr(false),
+			GuestsCount:   0,
+			DeclineReason: "Traveling out of town that weekend",
+		}
+		bDeclined, _ := json.Marshal(rsvpDeclined)
+		dResp, err := client.Post(ts.URL+"/rsvp", "application/json", bytes.NewReader(bDeclined))
+		if err != nil {
+			t.Fatalf("Failed to create declined RSVP: %v", err)
+		}
+		if dResp.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 OK, got %d", dResp.StatusCode)
+		}
+		var savedDeclined RSVP
+		_ = json.NewDecoder(dResp.Body).Decode(&savedDeclined)
+		dResp.Body.Close()
+
+		if savedDeclined.Attending != false || savedDeclined.DeclineReason != "Traveling out of town that weekend" {
+			t.Fatalf("Expected decline reason preserved, got: %+v", savedDeclined)
+		}
+
+		// 5. Check Event Stats: 2 responses, 1 accepted, 1 declined, 3 headcount (Sophia + 2 guests)
+		statsResp, err := client.Get(fmt.Sprintf("%s/rsvp/stats?event_id=%d", ts.URL, createdEv.ID))
+		if err != nil {
+			t.Fatalf("Failed to get event stats: %v", err)
+		}
+		var eventStats RSVPStats
+		_ = json.NewDecoder(statsResp.Body).Decode(&eventStats)
+		statsResp.Body.Close()
+
+		if eventStats.TotalResponses != 2 || eventStats.AttendingCount != 1 || eventStats.DeclinedCount != 1 || eventStats.TotalHeadcount != 3 {
+			t.Fatalf("Unexpected event stats: %+v", eventStats)
+		}
+	})
+
+}
+
+func TestHandleIndex(t *testing.T) {
+	srv := &Server{DB: nil}
+
+	t.Run("GET / returns 200 with HTML UI", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+
+		srv.HandleIndex(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("Expected status 200, got %d", rec.Code)
+		}
+
+		contentType := rec.Header().Get("Content-Type")
+		if !strings.Contains(contentType, "text/html") {
+			t.Fatalf("Expected Content-Type text/html, got %s", contentType)
+		}
+
+		body := rec.Body.String()
+		if !strings.Contains(body, "RSVP") {
+			t.Fatal("Expected HTML body to contain 'RSVP'")
+		}
+		if !strings.Contains(body, "First Name") || !strings.Contains(body, "Last Name") {
+			t.Fatal("Expected HTML body to contain First Name and Last Name fields")
+		}
+		if !strings.Contains(body, "Will you be attending?") {
+			t.Fatal("Expected HTML body to contain 'Will you be attending?'")
+		}
+		if !strings.Contains(body, "Accepts with Pleasure!") || !strings.Contains(body, "Declines with Regret.") {
+			t.Fatal("Expected HTML body to contain attendance options")
+		}
+		if !strings.Contains(body, "Additional Guests") {
+			t.Fatal("Expected HTML body to contain Additional Guests selection")
+		}
+		if !strings.Contains(body, "SEND") {
+			t.Fatal("Expected HTML body to contain SEND button")
+		}
+	})
+
+	t.Run("GET /nonexistent returns 404", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/not-found", nil)
+		rec := httptest.NewRecorder()
+
+		srv.HandleIndex(rec, req)
+
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("Expected status 404, got %d", rec.Code)
+		}
+	})
+}
+
+func TestHandleStatic(t *testing.T) {
+	srv := &Server{DB: nil}
+
+	t.Run("GET /static/thankyou.jpg returns 200 with image/jpeg", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/static/thankyou.jpg", nil)
+		rec := httptest.NewRecorder()
+
+		srv.HandleStatic(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("Expected status 200, got %d", rec.Code)
+		}
+
+		contentType := rec.Header().Get("Content-Type")
+		if !strings.Contains(contentType, "image/jpeg") {
+			t.Fatalf("Expected Content-Type image/jpeg, got %s", contentType)
+		}
+	})
+
+	t.Run("GET /static/unknown.jpg returns 404", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/static/unknown.jpg", nil)
+		rec := httptest.NewRecorder()
+
+		srv.HandleStatic(rec, req)
+
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("Expected status 404, got %d", rec.Code)
+		}
+	})
+}
+func TestHandleAdmin(t *testing.T) {
+	srv := &Server{DB: nil}
+
+	t.Run("GET /admin returns 200 with HTML", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+		rec := httptest.NewRecorder()
+
+		srv.HandleAdmin(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("Expected status 200, got %d", rec.Code)
+		}
+
+		contentType := rec.Header().Get("Content-Type")
+		if !strings.Contains(contentType, "text/html") {
+			t.Fatalf("Expected Content-Type text/html, got %s", contentType)
+		}
+
+		body := rec.Body.String()
+		if !strings.Contains(body, "Admin Panel") {
+			t.Fatal("Expected Admin page to contain 'Admin Panel'")
+		}
+		if !strings.Contains(body, "Share Event & Invitation Link") {
+			t.Fatal("Expected Admin page to contain share link card")
 		}
 	})
 }
