@@ -46,6 +46,12 @@ func initDB() *pgxpool.Pool {
 		os.Exit(1)
 	}
 
+	if err := MigrateDB(pool); err != nil {
+		pool.Close()
+		slog.Error("Unable to run database migrations", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
 	return pool
 }
 
@@ -99,9 +105,19 @@ func main() {
 		_, _ = w.Write([]byte("OK"))
 	})
 
+	mux.HandleFunc("GET /{$}", srv.HandleIndex)
+	mux.HandleFunc("GET /admin", srv.HandleAdmin)
+	mux.HandleFunc("GET /admin/", srv.HandleAdmin)
+	mux.HandleFunc("POST /admin/login", srv.HandleAdminLogin)
+	mux.HandleFunc("POST /admin/logout", srv.HandleAdminLogout)
+	mux.HandleFunc("GET /admin/me", srv.HandleAdminMe)
+	mux.HandleFunc("GET /static/", srv.HandleStatic)
 	mux.HandleFunc("POST /rsvp", srv.HandleCreateRSVP)
 	mux.HandleFunc("GET /rsvp", srv.HandleListRSVPs)
 	mux.HandleFunc("GET /rsvp/stats", srv.HandleRSVPStats)
+	mux.HandleFunc("POST /events", srv.HandleCreateEvent)
+	mux.HandleFunc("GET /events", srv.HandleListEvents)
+	mux.HandleFunc("GET /events/detail", srv.HandleGetEventDetail)
 
 	// Middleware chain: Recovery -> Tracing (sets ID) -> Logging (logs ID & timing) -> Mux
 	handler := recoverMiddleware(TracingMiddleware(LoggingMiddleware(mux)))
