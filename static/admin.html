@@ -1,0 +1,1838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - RSVP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #f1f4f2;
+      color: #2c332e;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ============================================================
+       LOGIN VIEW (Inspired by /Downloads/loginpageinspo.jpg)
+       ============================================================ */
+    #adminLoginView {
+      flex: 1;
+      min-height: 100vh;
+      width: 100%;
+      background: radial-gradient(ellipse at 50% 35%, #344f4d 0%, #203432 55%, #132221 100%);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .login-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 36px;
+      width: 100%;
+    }
+
+    .login-back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #a4bebb;
+      text-decoration: none;
+      font-size: 13.5px;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .login-back-link:hover {
+      color: #ffffff;
+    }
+
+    .login-top-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      color: #8da4a1;
+      font-size: 13px;
+    }
+
+    .login-portal-tag {
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 4px;
+      padding: 6px 14px;
+      color: #e2edea;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .login-center-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 24px 60px;
+    }
+
+    .login-emblem {
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-form-box {
+      width: 100%;
+      max-width: 360px;
+      text-align: left;
+    }
+
+    .dark-form-group {
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .dark-form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #8ea7a3;
+      margin-bottom: 8px;
+    }
+
+    .dark-form-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.28);
+      padding: 10px 0;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      color: #ffffff;
+      transition: border-color 0.2s ease;
+    }
+
+    .dark-form-input:focus {
+      outline: none;
+      border-bottom-color: #52b788;
+    }
+
+    .dark-form-input::placeholder {
+      color: rgba(255, 255, 255, 0.25);
+    }
+
+    .dark-submit-btn {
+      width: 100%;
+      background-color: #9cb3af;
+      color: #172625;
+      border: none;
+      border-radius: 4px;
+      padding: 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14.5px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .dark-submit-btn:hover {
+      background-color: #b5ccc8;
+      color: #0f1c1b;
+      transform: translateY(-1px);
+    }
+
+    .dark-submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .login-error-badge {
+      display: none;
+      background-color: rgba(220, 53, 69, 0.2);
+      border: 1px solid rgba(220, 53, 69, 0.45);
+      color: #ffb4ba;
+      border-radius: 4px;
+      padding: 10px 14px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    /* ============================================================
+       TOP NAVIGATION BAR (Authenticated Dashboard)
+       ============================================================ */
+    .navbar {
+      background-color: #ffffff;
+      border-bottom: 1px solid #dce2df;
+      padding: 14px 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .brand-title {
+      font-family: 'Oswald', sans-serif;
+      font-size: 26px;
+      letter-spacing: 2px;
+      color: #2d6a4f;
+      text-transform: uppercase;
+      font-weight: 600;
+      line-height: 1;
+    }
+
+    .brand-tag {
+      background-color: #eaf4ee;
+      color: #2d6a4f;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 9px;
+      border-radius: 12px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .nav-public-link {
+      color: #4a5c53;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border: 1px solid #dce2df;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .nav-public-link:hover {
+      background-color: #f4f7f5;
+      color: #2d6a4f;
+      border-color: #2d6a4f;
+    }
+
+    /* Profile Button & Dropdown (far top right, using profile icon.jpg) */
+    .profile-menu-container {
+      position: relative;
+    }
+
+    .profile-avatar-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid #2d6a4f;
+      background-color: #ffffff;
+      padding: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      transition: box-shadow 0.2s ease, transform 0.15s ease;
+    }
+
+    .profile-avatar-btn:hover {
+      box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.18);
+      transform: scale(1.04);
+    }
+
+    .profile-avatar-btn img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .profile-dropdown {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 50px;
+      width: 240px;
+      background-color: #ffffff;
+      border: 1px solid #dce2df;
+      border-radius: 6px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      overflow: hidden;
+      animation: dropdownFade 0.15s ease-out;
+    }
+
+    @keyframes dropdownFade {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .profile-dropdown.open {
+      display: block;
+    }
+
+    .profile-dropdown-header {
+      padding: 16px;
+      border-bottom: 1px solid #edf1ee;
+      background-color: #fafbfa;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .profile-dropdown-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1.5px solid #2d6a4f;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .profile-dropdown-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .profile-dropdown-info {
+      overflow: hidden;
+    }
+
+    .profile-dropdown-name {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #2c332e;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    .profile-dropdown-role {
+      font-size: 11.5px;
+      color: #72827a;
+    }
+
+    .profile-dropdown-item {
+      width: 100%;
+      padding: 12px 16px;
+      background: none;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: #9e2a2b;
+      cursor: pointer;
+      text-align: left;
+      transition: background-color 0.15s ease;
+    }
+
+    .profile-dropdown-item:hover {
+      background-color: #fbebee;
+    }
+
+    /* ============================================================
+       WIDE DASHBOARD CONTAINER (Inspired by /Downloads/alignment.jpg)
+       ============================================================ */
+    .dashboard-container {
+      width: 90%;
+      max-width: 1100px;
+      margin: 24px auto 60px;
+      flex: 1;
+    }
+
+    .dashboard-card {
+      background-color: #ffffff;
+      border: 1px solid #dce2df;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+      padding: 32px 38px 40px;
+    }
+
+    .dashboard-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 24px;
+      border-bottom: 1px solid #edf1ee;
+      margin-bottom: 26px;
+    }
+
+    .dashboard-main-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #2c332e;
+      letter-spacing: -0.01em;
+    }
+
+    .dashboard-subtitle {
+      font-size: 13px;
+      color: #6a7c73;
+      margin-top: 4px;
+    }
+
+    .btn-create-event {
+      background-color: #2d6a4f;
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 20px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background-color 0.2s ease, transform 0.15s ease;
+    }
+
+    .btn-create-event:hover {
+      background-color: #22533e;
+      transform: translateY(-1px);
+    }
+
+    /* Step / Tab navigation bar across the card (like alignment.jpg) */
+    .wizard-steps-bar {
+      display: flex;
+      border-bottom: 1px solid #edf1ee;
+      margin-bottom: 28px;
+      overflow-x: auto;
+    }
+
+    .wizard-step {
+      padding: 14px 24px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #72827a;
+      border-bottom: 2px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+
+    .wizard-step.active {
+      color: #2d6a4f;
+      border-bottom-color: #2d6a4f;
+    }
+
+    .step-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background-color: #eaf4ee;
+      color: #2d6a4f;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11.5px;
+      font-weight: 700;
+    }
+
+    .wizard-step.active .step-num {
+      background-color: #2d6a4f;
+      color: #ffffff;
+    }
+
+    /* 3-column / 2-column wide layout rows matching alignment.jpg */
+    .grid-3col {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 22px;
+      margin-bottom: 26px;
+    }
+
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+      margin-bottom: 26px;
+    }
+
+    .field-card {
+      background-color: #fafbfa;
+      border: 1px solid #e1e7e3;
+      border-radius: 6px;
+      padding: 20px 22px;
+    }
+
+    .field-card-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #2d6a4f;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Select Event Strip */
+    .event-select-wrapper {
+      position: relative;
+    }
+
+    .dashboard-select {
+      width: 100%;
+      background-color: #ffffff;
+      border: 1px solid #d0d7d3;
+      border-radius: 4px;
+      padding: 10px 14px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: #2c332e;
+      appearance: none;
+      cursor: pointer;
+    }
+
+    .dashboard-select:focus {
+      outline: none;
+      border-color: #2d6a4f;
+    }
+
+    .select-chevron {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: #666;
+    }
+
+    .event-meta-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .meta-chip {
+      background-color: #ffffff;
+      border: 1px solid #dce2df;
+      border-radius: 4px;
+      padding: 6px 12px;
+      font-size: 12.5px;
+      color: #4a5c53;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .meta-chip strong {
+      color: #2c332e;
+    }
+
+    .chip-gcal {
+      background-color: #eaf4ee;
+      border-color: #c4ded1;
+      color: #2d6a4f;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .chip-gcal:hover {
+      background-color: #2d6a4f;
+      color: #ffffff;
+    }
+
+    /* Share Hub */
+    .share-input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .share-url-input {
+      flex: 1;
+      background-color: #ffffff;
+      border: 1px solid #d0d7d3;
+      border-radius: 4px;
+      padding: 10px 14px;
+      font-family: 'Inter', monospace;
+      font-size: 13px;
+      color: #2c332e;
+    }
+
+    .btn-copy {
+      background-color: #2d6a4f;
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 18px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color 0.2s ease;
+    }
+
+    .btn-copy:hover {
+      background-color: #22533e;
+    }
+
+    .social-share-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .social-btn {
+      padding: 7px 14px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+    }
+
+    .btn-whatsapp { background-color: #25D366; color: #ffffff; }
+    .btn-whatsapp:hover { background-color: #1eb956; }
+    .btn-telegram { background-color: #229ED9; color: #ffffff; }
+    .btn-telegram:hover { background-color: #1d8ac0; }
+    .btn-twitter { background-color: #000000; color: #ffffff; }
+    .btn-twitter:hover { background-color: #222222; }
+    .btn-email { background-color: #ffffff; color: #2c332e; border-color: #dce2df; }
+    .btn-email:hover { background-color: #f1f4f2; }
+    .btn-gcal-action { background-color: #4285F4; color: #ffffff; }
+    .btn-gcal-action:hover { background-color: #3367d6; }
+
+    /* Stat Cards (4-column row filling screen) */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin: 28px 0;
+    }
+
+    .stat-card {
+      background-color: #fafbfa;
+      border: 1px solid #e1e7e3;
+      border-radius: 6px;
+      padding: 20px 22px;
+      text-align: left;
+    }
+
+    .stat-card.highlight {
+      border-left: 4px solid #2d6a4f;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #2c332e;
+      line-height: 1.1;
+      margin-bottom: 6px;
+    }
+
+    .stat-label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #72827a;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* Guest Responses Section & Tabs */
+    .responses-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 32px;
+      margin-bottom: 16px;
+    }
+
+    .responses-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #2c332e;
+    }
+
+    .tab-pills {
+      display: flex;
+      gap: 8px;
+    }
+
+    .tab-pill {
+      background-color: #fafbfa;
+      border: 1px solid #dce2df;
+      border-radius: 4px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #55675e;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .tab-pill.active {
+      background-color: #2d6a4f;
+      color: #ffffff;
+      border-color: #2d6a4f;
+    }
+
+    /* Full-width Responsive Tables */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid #e1e7e3;
+      border-radius: 6px;
+      background-color: #ffffff;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    .data-table th {
+      background-color: #fafbfa;
+      color: #55675e;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 14px 18px;
+      border-bottom: 1px solid #e1e7e3;
+      white-space: nowrap;
+    }
+
+    .data-table td {
+      padding: 14px 18px;
+      border-bottom: 1px solid #edf1ee;
+      color: #2c332e;
+      vertical-align: middle;
+    }
+
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .data-table tr:hover td {
+      background-color: #fbfcfb;
+    }
+
+    .dietary-badge {
+      display: inline-block;
+      background-color: #eaf4ee;
+      color: #2d6a4f;
+      border: 1px solid #c9e2d3;
+      border-radius: 12px;
+      padding: 3px 9px;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+
+    .guest-detail-badge {
+      display: block;
+      background-color: #f4f6f5;
+      border: 1px solid #e2e7e4;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      color: #3b4d44;
+      margin-top: 4px;
+    }
+
+    .decline-quote {
+      font-style: italic;
+      color: #6a7c73;
+      background-color: #fafbfa;
+      border-left: 3px solid #dce2df;
+      padding: 6px 10px;
+      border-radius: 0 4px 4px 0;
+    }
+
+    .empty-state {
+      padding: 48px 24px;
+      text-align: center;
+      color: #83948b;
+      font-size: 14px;
+    }
+
+    /* ============================================================
+       CREATE EVENT MODAL (With Calendar & Creative Time Pickers)
+       ============================================================ */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(18, 32, 26, 0.55);
+      backdrop-filter: blur(2px);
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .modal-card {
+      background-color: #ffffff;
+      border-radius: 8px;
+      max-width: 680px;
+      width: 100%;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
+      overflow: hidden;
+      max-height: 86vh;
+      display: flex;
+      flex-direction: column;
+      margin: auto;
+    }
+
+    .modal-header {
+      padding: 18px 28px;
+      border-bottom: 1px solid #edf1ee;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #2c332e;
+    }
+
+    .modal-close-btn {
+      background: none;
+      border: none;
+      font-size: 22px;
+      color: #888;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .modal-body {
+      padding: 20px 28px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #2c332e;
+      margin-bottom: 6px;
+    }
+
+    .form-input, .form-textarea {
+      width: 100%;
+      background-color: #fafbfa;
+      border: 1px solid #d0d7d3;
+      border-radius: 4px;
+      padding: 9px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13.5px;
+      color: #2c332e;
+      transition: border-color 0.15s ease;
+    }
+
+    .form-input:focus, .form-textarea:focus {
+      outline: none;
+      border-color: #2d6a4f;
+      background-color: #ffffff;
+    }
+
+    /* Creative Time Picker Row */
+    .time-picker-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .time-chips-bar {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .time-chip-btn {
+      background-color: #eef2ef;
+      border: 1px solid #dce2df;
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #4a5c53;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .time-chip-btn:hover {
+      background-color: #2d6a4f;
+      color: #ffffff;
+      border-color: #2d6a4f;
+    }
+
+    .time-helper-tip {
+      font-size: 11.5px;
+      color: #72827a;
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .modal-footer {
+      padding: 16px 28px;
+      background-color: #fafbfa;
+      border-top: 1px solid #edf1ee;
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 900px) {
+      .grid-3col {
+        grid-template-columns: 1fr;
+      }
+      .grid-2col {
+        grid-template-columns: 1fr;
+      }
+      .stats-row {
+        grid-template-columns: 1fr 1fr;
+      }
+      .dashboard-card {
+        padding: 24px 20px;
+      }
+      .navbar {
+        padding: 12px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       1. ADMIN LOGIN VIEW (Inspired by loginpageinspo.jpg)
+       ============================================================ -->
+  <div id="adminLoginView" style="display: none;">
+    <div class="login-topbar">
+      <a href="/" class="login-back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        Back to RSVP
+      </a>
+      <div class="login-top-right">
+        <span>Organizers</span>
+        <span class="login-portal-tag">Admin Portal</span>
+      </div>
+    </div>
+
+    <div class="login-center-wrapper">
+      <!-- Minimalist geometric logo emblem matching loginpageinspo.jpg -->
+      <div class="login-emblem">
+        <svg width="60" height="60" viewBox="0 0 48 48" fill="none">
+          <path d="M24 6L10 18V36L24 44L38 36V18L24 6Z" fill="#ffffff" fill-opacity="0.95"/>
+          <path d="M24 6L38 18V36L24 28V6Z" fill="#ffffff" fill-opacity="0.6"/>
+        </svg>
+      </div>
+
+      <div class="login-form-box">
+        <div id="loginErrorMsg" class="login-error-badge"></div>
+
+        <form id="adminLoginForm">
+          <div class="dark-form-group">
+            <label class="dark-form-label" for="adminUsername">USERNAME</label>
+            <input type="text" id="adminUsername" class="dark-form-input" required autocomplete="username">
+          </div>
+
+          <div class="dark-form-group">
+            <label class="dark-form-label" for="adminPassword">PASSWORD</label>
+            <input type="password" id="adminPassword" class="dark-form-input" required autocomplete="current-password">
+          </div>
+
+          <button type="submit" class="dark-submit-btn" id="loginSubmitBtn">Login</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       2. AUTHENTICATED ADMIN DASHBOARD (Wide screen layout like alignment.jpg)
+       ============================================================ -->
+  <div id="adminDashboardView" style="display: none; flex-direction: column; flex: 1;">
+    <!-- Top Nav with profile icon on the far right -->
+    <nav class="navbar">
+      <a href="/admin" class="nav-brand">
+        <span class="brand-title">RSVP</span>
+        <span class="brand-tag">Admin Panel</span>
+      </a>
+
+      <div class="nav-actions">
+        <a href="/" target="_blank" class="nav-public-link">
+          Public Form
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </a>
+
+        <!-- Profile button on far top right matching profile icon.jpg -->
+        <div class="profile-menu-container">
+          <button type="button" class="profile-avatar-btn" id="profileBtn" title="Account profile & options">
+            <img src="/static/profile-icon.jpg" alt="Admin Profile">
+          </button>
+
+          <!-- Dropdown showing user info and Logout button -->
+          <div class="profile-dropdown" id="profileDropdown">
+            <div class="profile-dropdown-header">
+              <div class="profile-dropdown-avatar">
+                <img src="/static/profile-icon.jpg" alt="Admin Avatar">
+              </div>
+              <div class="profile-dropdown-info">
+                <div class="profile-dropdown-name" id="dropdownUsername">admin</div>
+                <div class="profile-dropdown-role">Event Organizer</div>
+              </div>
+            </div>
+
+            <button type="button" class="profile-dropdown-item" id="logoutBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+              Log Out
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Full-screen wide container matching alignment.jpg -->
+    <main class="dashboard-container">
+      <div class="dashboard-card">
+        
+        <!-- Header row -->
+        <div class="dashboard-header-row">
+          <div>
+            <h1 class="dashboard-main-title">Event Management & RSVPs</h1>
+            <p class="dashboard-subtitle">Manage guest lists, invitations, dietary preferences, and event dates.</p>
+          </div>
+          <button type="button" class="btn-create-event" id="openCreateModalBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Create New Event
+          </button>
+        </div>
+
+        <!-- Wizard / Navigation strip across wide card -->
+        <div class="wizard-steps-bar">
+          <div class="wizard-step active">
+            <span class="step-num">1</span>
+            <span>Select Event</span>
+          </div>
+          <div class="wizard-step active">
+            <span class="step-num">2</span>
+            <span>Share & Invitation Link</span>
+          </div>
+          <div class="wizard-step active">
+            <span class="step-num">3</span>
+            <span>Guest Tracking & Dietary</span>
+          </div>
+        </div>
+
+        <!-- 2-column wide layout row: Event Details & Share Hub -->
+        <div class="grid-2col">
+          <!-- Column 1: Active Event Selector & Details -->
+          <div class="field-card">
+            <div class="field-card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              Active Event
+            </div>
+            <div class="event-select-wrapper">
+              <select id="eventSelect" class="dashboard-select">
+                <option value="">Loading events...</option>
+              </select>
+              <svg class="select-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+
+            <div class="event-meta-chips" id="activeEventChips" style="display: none;">
+              <span class="meta-chip" id="chipDate"><strong>Date:</strong> <span>-</span></span>
+              <span class="meta-chip" id="chipLocation"><strong>Location:</strong> <span>-</span></span>
+              <span class="meta-chip" id="chipRespondBy"><strong>Respond By:</strong> <span>-</span></span>
+              <a href="#" target="_blank" class="meta-chip chip-gcal" id="chipGCalBtn" title="Sync with Google Calendar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                Google Calendar
+              </a>
+            </div>
+          </div>
+
+          <!-- Column 2: Share Hub -->
+          <div class="field-card">
+            <div class="field-card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="18" cy="5" r="3"></circle>
+                <circle cx="6" cy="12" r="3"></circle>
+                <circle cx="18" cy="19" r="3"></circle>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+              </svg>
+              Share Event & Invitation Link
+            </div>
+            <div class="share-input-group">
+              <input type="text" id="shareUrlInput" class="share-url-input" readonly>
+              <button type="button" class="btn-copy" id="copyLinkBtn">Copy Link</button>
+            </div>
+            <div class="social-share-strip">
+              <a href="#" target="_blank" class="social-btn btn-whatsapp" id="shareWhatsApp">WhatsApp</a>
+              <a href="#" target="_blank" class="social-btn btn-telegram" id="shareTelegram">Telegram</a>
+              <a href="#" target="_blank" class="social-btn btn-twitter" id="shareTwitter">X (Twitter)</a>
+              <a href="#" class="social-btn btn-email" id="shareEmail">Email</a>
+              <a href="#" target="_blank" class="social-btn btn-gcal-action" id="shareGCal">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                </svg>
+                Add to Google Calendar
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4-column Stat row -->
+        <div class="stats-row">
+          <div class="stat-card highlight">
+            <div class="stat-value" id="statResponses">0</div>
+            <div class="stat-label">Total Responses</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style="color: #2d6a4f;" id="statAttending">0</div>
+            <div class="stat-label">Attending (Accepted)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style="color: #9e2a2b;" id="statDeclined">0</div>
+            <div class="stat-label">Declined</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style="color: #1b4332;" id="statHeadcount">0</div>
+            <div class="stat-label">Total Headcount (Incl. Guests)</div>
+          </div>
+        </div>
+
+        <!-- Guest Responses List -->
+        <div class="responses-header-row">
+          <div class="responses-title">Guest Responses & Dietary Requirements</div>
+          <div class="tab-pills">
+            <button type="button" class="tab-pill active" id="tabAccepted">Accepted (<span id="tabCountAccepted">0</span>)</button>
+            <button type="button" class="tab-pill" id="tabDeclined">Declined (<span id="tabCountDeclined">0</span>)</button>
+          </div>
+        </div>
+
+        <!-- Accepted Table -->
+        <div id="acceptedTableContainer" class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Attendee</th>
+                <th>Email</th>
+                <th>Dietary Preference</th>
+                <th>Additional Guests</th>
+                <th>Submitted On</th>
+              </tr>
+            </thead>
+            <tbody id="acceptedTableBody">
+              <tr>
+                <td colspan="5" class="empty-state">No accepted RSVPs yet for this event.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Declined Table -->
+        <div id="declinedTableContainer" class="table-container" style="display: none;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Invitee</th>
+                <th>Email</th>
+                <th>Reason for Declining</th>
+                <th>Submitted On</th>
+              </tr>
+            </thead>
+            <tbody id="declinedTableBody">
+              <tr>
+                <td colspan="4" class="empty-state">No declined RSVPs recorded.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ============================================================
+       3. CREATE EVENT MODAL (Calendar Date Picker & Creative Time Picker)
+       ============================================================ -->
+  <div class="modal-overlay" id="createEventModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">Create New Event</h2>
+        <button type="button" class="modal-close-btn" id="closeCreateModalBtn">&times;</button>
+      </div>
+
+      <form id="createEventForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="newEventTitle">Event Title *</label>
+            <input type="text" id="newEventTitle" class="form-input" placeholder="e.g. Annual Gala 2026" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="newEventSlug">Event URL Slug (Optional)</label>
+            <input type="text" id="newEventSlug" class="form-input" placeholder="e.g. annual-gala-2026 (auto-generated if empty)">
+          </div>
+
+          <!-- Date Picker with Calendar -->
+          <div class="form-group">
+            <label class="form-label" for="newEventDatePicker">Event Date (Calendar) *</label>
+            <input type="date" id="newEventDatePicker" class="form-input" required>
+          </div>
+
+          <!-- Creative Time Picker with Google Calendar Sync Hook -->
+          <div class="form-group">
+            <label class="form-label">Time & Duration (Google Calendar Ready) *</label>
+            <div class="time-picker-grid">
+              <div>
+                <label style="font-size: 11px; color: #72827a; margin-bottom: 4px; display: block;">START TIME</label>
+                <input type="time" id="newEventStartTime" class="form-input" value="18:00" required>
+              </div>
+              <div>
+                <label style="font-size: 11px; color: #72827a; margin-bottom: 4px; display: block;">END TIME</label>
+                <input type="time" id="newEventEndTime" class="form-input" value="21:00" required>
+              </div>
+            </div>
+
+            <!-- Quick Duration Chips -->
+            <div class="time-chips-bar">
+              <span style="font-size: 11.5px; color: #72827a; margin-right: 4px; align-self: center;">Quick Set:</span>
+              <button type="button" class="time-chip-btn" data-hours="1">+1 hr</button>
+              <button type="button" class="time-chip-btn" data-hours="2">+2 hrs</button>
+              <button type="button" class="time-chip-btn" data-hours="3">+3 hrs</button>
+              <button type="button" class="time-chip-btn" data-hours="4">+4 hrs</button>
+              <button type="button" class="time-chip-btn" data-hours="allday">All Day</button>
+            </div>
+            <div class="time-helper-tip">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span>Generates structured start/end timestamps ready for one-click Google Calendar sync.</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="newEventLocation">Location</label>
+            <input type="text" id="newEventLocation" class="form-input" placeholder="e.g. Kenyatta International Convention Centre">
+          </div>
+
+          <!-- Respond-By Calendar Picker -->
+          <div class="form-group">
+            <label class="form-label" for="newEventRespondByPicker">Respond-By Deadline (Calendar)</label>
+            <input type="date" id="newEventRespondByPicker" class="form-input">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="newEventDescription">Description (Optional)</label>
+            <textarea id="newEventDescription" class="form-textarea" rows="2" placeholder="Brief event description or instructions..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-public-link" id="cancelCreateModalBtn" style="background: none; border: 1px solid #d0d7d3; padding: 9px 16px; border-radius: 4px; cursor: pointer;">Cancel</button>
+          <button type="submit" class="btn-create-event" id="saveEventBtn">Save & Launch Event</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       JAVASCRIPT LOGIC
+       ============================================================ -->
+  <script>
+    let eventsList = [];
+    let currentEvent = null;
+    let allRSVPs = [];
+
+    // Views
+    const adminLoginView = document.getElementById('adminLoginView');
+    const adminDashboardView = document.getElementById('adminDashboardView');
+
+    // Login Elements
+    const adminLoginForm = document.getElementById('adminLoginForm');
+    const loginErrorMsg = document.getElementById('loginErrorMsg');
+    const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+
+    // Profile Dropdown Elements
+    const profileBtn = document.getElementById('profileBtn');
+    const profileDropdown = document.getElementById('profileDropdown');
+    const dropdownUsername = document.getElementById('dropdownUsername');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    // Dashboard Elements
+    const eventSelect = document.getElementById('eventSelect');
+    const activeEventChips = document.getElementById('activeEventChips');
+    const chipDate = document.getElementById('chipDate');
+    const chipLocation = document.getElementById('chipLocation');
+    const chipRespondBy = document.getElementById('chipRespondBy');
+    const chipGCalBtn = document.getElementById('chipGCalBtn');
+
+    const shareUrlInput = document.getElementById('shareUrlInput');
+    const copyLinkBtn = document.getElementById('copyLinkBtn');
+    const shareWhatsApp = document.getElementById('shareWhatsApp');
+    const shareTelegram = document.getElementById('shareTelegram');
+    const shareTwitter = document.getElementById('shareTwitter');
+    const shareEmail = document.getElementById('shareEmail');
+    const shareGCal = document.getElementById('shareGCal');
+
+    const statResponses = document.getElementById('statResponses');
+    const statAttending = document.getElementById('statAttending');
+    const statDeclined = document.getElementById('statDeclined');
+    const statHeadcount = document.getElementById('statHeadcount');
+
+    const tabAccepted = document.getElementById('tabAccepted');
+    const tabDeclined = document.getElementById('tabDeclined');
+    const tabCountAccepted = document.getElementById('tabCountAccepted');
+    const tabCountDeclined = document.getElementById('tabCountDeclined');
+    const acceptedTableContainer = document.getElementById('acceptedTableContainer');
+    const declinedTableContainer = document.getElementById('declinedTableContainer');
+    const acceptedTableBody = document.getElementById('acceptedTableBody');
+    const declinedTableBody = document.getElementById('declinedTableBody');
+
+    // Modal Elements
+    const openCreateModalBtn = document.getElementById('openCreateModalBtn');
+    const createEventModal = document.getElementById('createEventModal');
+    const closeCreateModalBtn = document.getElementById('closeCreateModalBtn');
+    const cancelCreateModalBtn = document.getElementById('cancelCreateModalBtn');
+    const createEventForm = document.getElementById('createEventForm');
+    const newEventTitle = document.getElementById('newEventTitle');
+    const newEventSlug = document.getElementById('newEventSlug');
+    const newEventDatePicker = document.getElementById('newEventDatePicker');
+    const newEventStartTime = document.getElementById('newEventStartTime');
+    const newEventEndTime = document.getElementById('newEventEndTime');
+    const newEventLocation = document.getElementById('newEventLocation');
+    const newEventRespondByPicker = document.getElementById('newEventRespondByPicker');
+    const newEventDescription = document.getElementById('newEventDescription');
+
+    // Helper: Escape HTML
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Helper: Format Date for Display
+    function formatDateNice(dateStr) {
+      if (!dateStr) return '';
+      try {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          const d = new Date(parts[0], parts[1] - 1, parts[2]);
+          return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+      } catch (e) {}
+      return dateStr;
+    }
+
+    // Helper: Convert 24hr time to 12hr AM/PM
+    function formatTime12(timeStr) {
+      if (!timeStr) return '';
+      const [hStr, mStr] = timeStr.split(':');
+      let h = parseInt(hStr, 10);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12;
+      if (h === 0) h = 12;
+      return `${h}:${mStr} ${ampm}`;
+    }
+
+    // Google Calendar URL Generator
+    function makeGoogleCalendarUrl(event) {
+      if (!event) return '#';
+      const title = encodeURIComponent(event.title || 'Event');
+      const details = encodeURIComponent(event.description || 'RSVP Event');
+      const location = encodeURIComponent(event.location || '');
+
+      // Parse date and time if available
+      let datesParam = '';
+      if (event.event_date) {
+        // Look for YYYY-MM-DD in event_date or use today
+        const match = event.event_date.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (match) {
+          const y = match[1], m = match[2], d = match[3];
+          // Default start 18:00, end 21:00 if not parsed
+          datesParam = `${y}${m}${d}T180000/${y}${m}${d}T210000`;
+        }
+      }
+      if (!datesParam) {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        datesParam = `${y}${m}${d}T180000/${y}${m}${d}T210000`;
+      }
+
+      return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${datesParam}&details=${details}&location=${location}`;
+    }
+
+    // 1. Check Authentication on Load
+    async function checkAuth() {
+      try {
+        const res = await fetch('/admin/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated) {
+            dropdownUsername.textContent = data.username || 'admin';
+            showDashboard();
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Auth check error:', err);
+      }
+      showLogin();
+    }
+
+    function showLogin() {
+      adminDashboardView.style.display = 'none';
+      adminLoginView.style.display = 'flex';
+    }
+
+    function showDashboard() {
+      adminLoginView.style.display = 'none';
+      adminDashboardView.style.display = 'flex';
+      loadEvents();
+    }
+
+    // 2. Login Submission
+    adminLoginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      loginErrorMsg.style.display = 'none';
+      loginSubmitBtn.disabled = true;
+      loginSubmitBtn.textContent = 'Signing in...';
+
+      const username = document.getElementById('adminUsername').value.trim();
+      const password = document.getElementById('adminPassword').value;
+
+      try {
+        const res = await fetch('/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          dropdownUsername.textContent = data.username || username;
+          adminLoginForm.reset();
+          showDashboard();
+        } else {
+          const errText = await res.text();
+          loginErrorMsg.textContent = errText || 'Invalid credentials. Please try again.';
+          loginErrorMsg.style.display = 'block';
+        }
+      } catch (err) {
+        loginErrorMsg.textContent = 'Connection error. Please try again.';
+        loginErrorMsg.style.display = 'block';
+      } finally {
+        loginSubmitBtn.disabled = false;
+        loginSubmitBtn.textContent = 'Login';
+      }
+    });
+
+    // 3. Profile Button & Dropdown Toggle
+    profileBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      profileDropdown.classList.toggle('open');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!profileDropdown.contains(e.target) && e.target !== profileBtn) {
+        profileDropdown.classList.remove('open');
+      }
+    });
+
+    // Logout
+    logoutBtn.addEventListener('click', async () => {
+      profileDropdown.classList.remove('open');
+      try {
+        await fetch('/admin/logout', { method: 'POST' });
+      } catch (e) {}
+      showLogin();
+    });
+
+    // 4. Quick Duration Chips for Time Picker
+    document.querySelectorAll('.time-chip-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const hours = btn.getAttribute('data-hours');
+        if (hours === 'allday') {
+          newEventStartTime.value = '09:00';
+          newEventEndTime.value = '23:59';
+          return;
+        }
+
+        const startVal = newEventStartTime.value || '18:00';
+        const [shStr, smStr] = startVal.split(':');
+        let endH = (parseInt(shStr, 10) + parseInt(hours, 10)) % 24;
+        newEventEndTime.value = `${String(endH).padStart(2, '0')}:${smStr}`;
+      });
+    });
+
+    // 5. Load Events List
+    async function loadEvents() {
+      try {
+        const res = await fetch('/events');
+        if (res.ok) {
+          eventsList = await res.json();
+          populateEventDropdown();
+        }
+      } catch (err) {
+        console.error('Failed to load events:', err);
+      }
+    }
+
+    function populateEventDropdown() {
+      eventSelect.innerHTML = '';
+      if (!eventsList || eventsList.length === 0) {
+        eventSelect.innerHTML = '<option value="">No events found. Click "+ Create New Event"</option>';
+        activeEventChips.style.display = 'none';
+        resetStats();
+        return;
+      }
+
+      eventsList.forEach((ev, idx) => {
+        const opt = document.createElement('option');
+        opt.value = ev.slug;
+        opt.textContent = `${ev.title} (${ev.slug})`;
+        if (idx === 0) opt.selected = true;
+        eventSelect.appendChild(opt);
+      });
+
+      selectEvent(eventsList[0]);
+    }
+
+    eventSelect.addEventListener('change', () => {
+      const slug = eventSelect.value;
+      const found = eventsList.find(e => e.slug === slug);
+      if (found) selectEvent(found);
+    });
+
+    function selectEvent(ev) {
+      currentEvent = ev;
+      activeEventChips.style.display = 'flex';
+
+      chipDate.querySelector('span').textContent = ev.event_date || 'Date TBD';
+      chipLocation.querySelector('span').textContent = ev.location || 'Location TBD';
+      chipRespondBy.querySelector('span').textContent = ev.respond_by || 'Not specified';
+
+      // Update Google Calendar Link
+      const gcalUrl = makeGoogleCalendarUrl(ev);
+      chipGCalBtn.href = gcalUrl;
+      shareGCal.href = gcalUrl;
+
+      // Update Share URLs
+      const origin = window.location.origin;
+      const publicLink = `${origin}/?event=${encodeURIComponent(ev.slug)}`;
+      shareUrlInput.value = publicLink;
+
+      const shareText = encodeURIComponent(`You are invited to ${ev.title}! Please confirm your attendance here: ${publicLink}`);
+      shareWhatsApp.href = `https://api.whatsapp.com/send?text=${shareText}`;
+      shareTelegram.href = `https://t.me/share/url?url=${encodeURIComponent(publicLink)}&text=${encodeURIComponent('RSVP Invitation: ' + ev.title)}`;
+      shareTwitter.href = `https://twitter.com/intent/tweet?text=${shareText}`;
+      shareEmail.href = `mailto:?subject=${encodeURIComponent('Invitation: ' + ev.title)}&body=${shareText}`;
+
+      loadEventStatsAndRSVPs(ev.id);
+    }
+
+    async function loadEventStatsAndRSVPs(eventId) {
+      try {
+        const statsRes = await fetch(`/rsvp/stats?event_id=${eventId}`);
+        if (statsRes.ok) {
+          const stats = await statsRes.json();
+          statResponses.textContent = stats.total_responses || 0;
+          statAttending.textContent = stats.attending_count || 0;
+          statDeclined.textContent = stats.declined_count || 0;
+          statHeadcount.textContent = stats.total_headcount || 0;
+        }
+
+        const rsvpRes = await fetch(`/rsvp?event_id=${eventId}&limit=100`);
+        if (rsvpRes.ok) {
+          allRSVPs = await rsvpRes.json();
+          renderRSVPTables();
+        }
+      } catch (err) {
+        console.error('Failed to load event data:', err);
+      }
+    }
+
+    function renderRSVPTables() {
+      const accepted = allRSVPs.filter(r => r.attending);
+      const declined = allRSVPs.filter(r => !r.attending);
+
+      tabCountAccepted.textContent = accepted.length;
+      tabCountDeclined.textContent = declined.length;
+
+      // Render Accepted Table
+      if (accepted.length === 0) {
+        acceptedTableBody.innerHTML = `<tr><td colspan="5" class="empty-state">No accepted RSVPs recorded yet for this event.</td></tr>`;
+      } else {
+        acceptedTableBody.innerHTML = accepted.map(r => {
+          const dateNice = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+          const dietaryBadge = r.dietary ? `<span class="dietary-badge">${escapeHtml(r.dietary)}</span>` : '<span style="color: #999;">None</span>';
+          
+          let guestsHtml = `<strong>${r.guests_count}</strong> additional`;
+          if (r.guest_details && r.guest_details.length > 0) {
+            guestsHtml += r.guest_details.map(g => `<span class="guest-detail-badge">${escapeHtml(g)}</span>`).join('');
+          } else if (r.guests_count === 0) {
+            guestsHtml = '<span style="color: #999;">Solo</span>';
+          }
+
+          return `
+            <tr>
+              <td><strong>${escapeHtml(r.name)}</strong></td>
+              <td>${escapeHtml(r.email)}</td>
+              <td>${dietaryBadge}</td>
+              <td>${guestsHtml}</td>
+              <td><span style="color: #6a7c73; font-size: 12px;">${dateNice}</span></td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Render Declined Table
+      if (declined.length === 0) {
+        declinedTableBody.innerHTML = `<tr><td colspan="4" class="empty-state">No declined RSVPs recorded.</td></tr>`;
+      } else {
+        declinedTableBody.innerHTML = declined.map(r => {
+          const dateNice = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+          const reasonHtml = r.decline_reason ? `<div class="decline-quote">"${escapeHtml(r.decline_reason)}"</div>` : '<span style="color: #999;">No reason provided</span>';
+
+          return `
+            <tr>
+              <td><strong>${escapeHtml(r.name)}</strong></td>
+              <td>${escapeHtml(r.email)}</td>
+              <td>${reasonHtml}</td>
+              <td><span style="color: #6a7c73; font-size: 12px;">${dateNice}</span></td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    function resetStats() {
+      statResponses.textContent = '0';
+      statAttending.textContent = '0';
+      statDeclined.textContent = '0';
+      statHeadcount.textContent = '0';
+      acceptedTableBody.innerHTML = `<tr><td colspan="5" class="empty-state">Select or create an event to see RSVPs.</td></tr>`;
+      declinedTableBody.innerHTML = `<tr><td colspan="4" class="empty-state">Select or create an event to see RSVPs.</td></tr>`;
+    }
+
+    // Tabs toggle
+    tabAccepted.addEventListener('click', () => {
+      tabAccepted.classList.add('active');
+      tabDeclined.classList.remove('active');
+      acceptedTableContainer.style.display = 'block';
+      declinedTableContainer.style.display = 'none';
+    });
+
+    tabDeclined.addEventListener('click', () => {
+      tabDeclined.classList.add('active');
+      tabAccepted.classList.remove('active');
+      acceptedTableContainer.style.display = 'none';
+      declinedTableContainer.style.display = 'block';
+    });
+
+    // Copy Link button
+    copyLinkBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(shareUrlInput.value);
+        copyLinkBtn.textContent = 'Copied!';
+        copyLinkBtn.style.backgroundColor = '#1b4332';
+        setTimeout(() => {
+          copyLinkBtn.textContent = 'Copy Link';
+          copyLinkBtn.style.backgroundColor = '#2d6a4f';
+        }, 2000);
+      } catch (err) {
+        shareUrlInput.select();
+        document.execCommand('copy');
+        copyLinkBtn.textContent = 'Copied!';
+        setTimeout(() => { copyLinkBtn.textContent = 'Copy Link'; }, 2000);
+      }
+    });
+
+    // 6. Modal Create Event
+    openCreateModalBtn.addEventListener('click', () => {
+      createEventModal.style.display = 'flex';
+      createEventForm.reset();
+      // Set default date to 2 weeks from now
+      const d = new Date();
+      d.setDate(d.getDate() + 14);
+      newEventDatePicker.value = d.toISOString().split('T')[0];
+      newEventStartTime.value = '18:00';
+      newEventEndTime.value = '21:00';
+    });
+
+    function closeModal() {
+      createEventModal.style.display = 'none';
+    }
+
+    closeCreateModalBtn.addEventListener('click', closeModal);
+    cancelCreateModalBtn.addEventListener('click', closeModal);
+    createEventModal.addEventListener('click', (e) => {
+      if (e.target === createEventModal) closeModal();
+    });
+
+    createEventForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const saveBtn = document.getElementById('saveEventBtn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+
+      const title = newEventTitle.value.trim();
+      const slug = newEventSlug.value.trim();
+      const rawDate = newEventDatePicker.value;
+      const startTime = newEventStartTime.value;
+      const endTime = newEventEndTime.value;
+      const location = newEventLocation.value.trim();
+      const rawRespondBy = newEventRespondByPicker.value;
+      const description = newEventDescription.value.trim();
+
+      // Format creative event date string
+      const niceDate = formatDateNice(rawDate);
+      const timeSpan = `${formatTime12(startTime)} – ${formatTime12(endTime)}`;
+      const combinedDate = `${niceDate} • ${timeSpan}`;
+      const niceRespondBy = rawRespondBy ? formatDateNice(rawRespondBy) : '';
+
+      try {
+        const res = await fetch('/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            slug,
+            description,
+            event_date: combinedDate,
+            location,
+            respond_by: niceRespondBy
+          })
+        });
+
+        if (res.ok) {
+          const created = await res.json();
+          closeModal();
+          await loadEvents();
+          // Select newly created event
+          eventSelect.value = created.slug;
+          selectEvent(created);
+        } else {
+          const err = await res.text();
+          alert('Failed to create event: ' + err);
+        }
+      } catch (err) {
+        alert('Connection error when creating event.');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save & Launch Event';
+      }
+    });
+
+    // Auto slugify when typing title
+    newEventTitle.addEventListener('input', () => {
+      if (!newEventSlug.dataset.manual) {
+        newEventSlug.value = newEventTitle.value
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      }
+    });
+
+    newEventSlug.addEventListener('input', () => {
+      newEventSlug.dataset.manual = 'true';
+    });
+
+    // Start
+    checkAuth();
+  </script>
+</body>
+</html>
