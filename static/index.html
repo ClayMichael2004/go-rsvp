@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RSVP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #ffffff;
+      color: #333333;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 56px 20px 80px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    /* Header styling matching rsvp1.jpg with green outline and no hearts */
+    .header-section {
+      text-align: center;
+      margin-bottom: 44px;
+    }
+
+    .rsvp-title {
+      font-family: 'Oswald', sans-serif;
+      font-size: 80px;
+      font-weight: 500;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: #ffffff;
+      -webkit-text-stroke: 1.6px #2d6a4f;
+      text-stroke: 1.6px #2d6a4f;
+      line-height: 1;
+      margin: 0 auto;
+      display: inline-block;
+    }
+
+    .header-divider {
+      width: 120px;
+      height: 1px;
+      background-color: #d8deda;
+      margin: 18px auto 0;
+    }
+
+    /* Form and fieldsets */
+    form {
+      width: 100%;
+    }
+
+    .rsvp-box {
+      border: 1px solid #dcdcdc;
+      border-radius: 2px;
+      padding: 24px 28px 28px;
+      margin-bottom: 26px;
+      background-color: #ffffff;
+    }
+
+    .box-legend {
+      font-family: 'Lora', Georgia, serif;
+      font-size: 13.5px;
+      font-weight: 400;
+      color: #555555;
+      padding: 0 14px;
+      text-align: center;
+      margin: 0 auto;
+      float: none;
+    }
+
+    .box-legend strong {
+      font-weight: 600;
+      color: #444444;
+    }
+
+    
+    /* Event Info Header */
+    .event-info-banner {
+      text-align: center;
+      margin-top: 12px;
+      margin-bottom: 4px;
+    }
+
+    .event-title-display {
+      font-family: 'Lora', Georgia, serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: #2d6a4f;
+      margin-bottom: 4px;
+    }
+
+    .event-meta-display {
+      font-family: 'Inter', sans-serif;
+      font-size: 13.5px;
+      color: #666666;
+    }
+
+    .form-textarea {
+      width: 100%;
+      background-color: #f7f7f7;
+      border: 1px solid #e7e7e7;
+      border-radius: 2px;
+      padding: 8px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: #333333;
+      resize: vertical;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .form-textarea:focus {
+      outline: none;
+      background-color: #ffffff;
+      border-color: #2d6a4f;
+    }
+
+    .decline-reason-container {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px dashed #dcdcdc;
+    }
+
+    .guest-details-container {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px dashed #dcdcdc;
+    }
+
+    .guest-details-title {
+      font-family: 'Lora', Georgia, serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: #2c332e;
+      margin-bottom: 14px;
+    }
+
+    .guest-fields-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .guest-card {
+      background-color: #fbfcfa;
+      border: 1px solid #e1e6e3;
+      border-radius: 3px;
+      padding: 16px 18px 18px;
+    }
+
+    .guest-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #edf0ee;
+    }
+
+    .guest-badge {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #2d6a4f;
+      background-color: #eaf4ee;
+      padding: 3px 10px;
+      border-radius: 12px;
+    }
+
+    /* Grid layout */
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 28px;
+      row-gap: 18px;
+      margin-top: 10px;
+    }
+
+    .grid-full {
+      grid-column: 1 / -1;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-label {
+      font-family: 'Lora', Georgia, serif;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #2c332e;
+      margin-bottom: 8px;
+    }
+
+    .form-input {
+      width: 100%;
+      height: 38px;
+      background-color: #f7f7f7;
+      border: 1px solid #e7e7e7;
+      border-radius: 2px;
+      padding: 8px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: #333333;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .form-input::placeholder {
+      color: #b0b5b1;
+      font-size: 12.5px;
+    }
+
+    .form-input:focus {
+      outline: none;
+      background-color: #ffffff;
+      border-color: #2d6a4f;
+    }
+
+    /* Box 2: Attendance */
+    .attendance-container {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 20px 20px 10px;
+    }
+
+    .attendance-option {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+    }
+
+    .attendance-option input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .radio-circle {
+      width: 24px;
+      height: 24px;
+      border: 2px solid #ccd4cf;
+      border-radius: 50%;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      background-color: #ffffff;
+    }
+
+    .attendance-option:hover .radio-circle {
+      border-color: #2d6a4f;
+    }
+
+    .attendance-option input[type="radio"]:checked + .radio-circle {
+      border-color: #2d6a4f;
+      background-color: #2d6a4f;
+      box-shadow: inset 0 0 0 4px #ffffff;
+    }
+
+    .attendance-label {
+      font-family: 'Lora', Georgia, serif;
+      font-size: 14.5px;
+      font-weight: 600;
+      color: #2c332e;
+      transition: color 0.2s ease;
+    }
+
+    .attendance-option input[type="radio"]:checked ~ .attendance-label {
+      color: #2d6a4f;
+    }
+
+    /* Box 3: Select dropdowns */
+    .select-wrapper {
+      position: relative;
+      width: 100%;
+    }
+
+    .rsvp-select {
+      width: 100%;
+      height: 38px;
+      background: linear-gradient(to bottom, #ffffff 0%, #fbfbfb 100%);
+      border: 1px solid #d5dad6;
+      border-radius: 2px;
+      padding: 8px 30px 8px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: #333333;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+
+    .rsvp-select:focus {
+      outline: none;
+      border-color: #2d6a4f;
+    }
+
+    .rsvp-select:disabled {
+      background: #f5f5f5;
+      color: #999999;
+      cursor: not-allowed;
+      border-color: #e0e0e0;
+    }
+
+    .select-arrow {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      width: 0;
+      height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 5px solid #888888;
+    }
+
+    .read-only-display {
+      width: 100%;
+      height: 38px;
+      background-color: #f7f7f7;
+      border: 1px solid #e7e7e7;
+      border-radius: 2px;
+      padding: 8px 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: #555555;
+      display: flex;
+      align-items: center;
+    }
+
+    /* Button styling */
+    .button-container {
+      text-align: center;
+      margin-top: 36px;
+    }
+
+    .btn-send {
+      background-color: #2d6a4f;
+      color: #ffffff;
+      border: none;
+      border-radius: 3px;
+      padding: 12px 34px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      transition: background-color 0.2s ease, transform 0.1s ease;
+    }
+
+    .btn-send:hover {
+      background-color: #22533e;
+    }
+
+    .btn-send:active {
+      transform: translateY(1px);
+    }
+
+    .btn-send:disabled {
+      background-color: #9ab3a5;
+      cursor: not-allowed;
+    }
+
+    .mail-icon {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+    }
+
+    /* Feedback error alert */
+    .alert-error {
+      display: none;
+      margin-top: 20px;
+      padding: 12px 16px;
+      border-radius: 2px;
+      font-size: 13px;
+      text-align: center;
+      font-weight: 500;
+      background-color: #fbebee;
+      color: #9e2a2b;
+      border: 1px solid #f2c6cc;
+    }
+
+    /* Thank You View */
+    .thank-you-view {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px 20px 40px;
+      animation: fadeIn 0.4s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .thank-you-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 600px;
+      width: 100%;
+    }
+
+    .thank-you-img {
+      max-width: 520px;
+      width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .thank-you-actions {
+      margin-top: 28px;
+    }
+
+    .btn-subtle {
+      background-color: transparent;
+      color: #2d6a4f;
+      border: 1px solid #2d6a4f;
+      border-radius: 3px;
+      padding: 9px 24px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .btn-subtle:hover {
+      background-color: #2d6a4f;
+      color: #ffffff;
+    }
+
+    @media (max-width: 600px) {
+      .grid-2col {
+        grid-template-columns: 1fr;
+      }
+      .attendance-container {
+        flex-direction: column;
+        gap: 20px;
+      }
+      .rsvp-title {
+        font-size: 60px;
+      }
+      .rsvp-box {
+        padding: 20px 18px 24px;
+      }
+      .thank-you-img {
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Form View -->
+    <div id="rsvpView">
+      <header class="header-section">
+        <h1 class="rsvp-title">RSVP</h1>
+        <div id="eventInfoBanner" class="event-info-banner" style="display: none;">
+          <div class="event-title-display" id="eventTitleDisplay"></div>
+          <div class="event-meta-display" id="eventMetaDisplay"></div>
+        </div>
+        <div class="header-divider"></div>
+      </header>
+
+      <form id="rsvpForm">
+        <!-- Section 1: Contact Details -->
+        <fieldset class="rsvp-box">
+          <legend class="box-legend" id="introLegend">Kindly respond by <strong>March 14, 2026</strong>. We look forward to celebrating with you!</legend>
+          <div class="grid-2col">
+            <div class="form-group">
+              <label class="form-label" for="firstName">First Name</label>
+              <input type="text" id="firstName" name="firstName" class="form-input" placeholder="Your first name is required" required autocomplete="given-name">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="lastName">Last Name</label>
+              <input type="text" id="lastName" name="lastName" class="form-input" placeholder="Your last name is required" required autocomplete="family-name">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="email">Email</label>
+              <input type="email" id="email" name="email" class="form-input" placeholder="name@yourdomain.com" required autocomplete="email">
+            </div>
+            <div class="form-group grid-full">
+              <label class="form-label" for="email">Email</label>
+              <input type="email" id="email" name="email" class="form-input" placeholder="name@yourdomain.com" required autocomplete="email">
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Section 2: Attendance -->
+        <fieldset class="rsvp-box">
+          <legend class="box-legend">Will you be attending?</legend>
+          <div class="attendance-container">
+            <label class="attendance-option" for="attendingYes">
+              <input type="radio" id="attendingYes" name="attending" value="true" required>
+              <span class="radio-circle"></span>
+              <span class="attendance-label">Accepts with Pleasure!</span>
+            </label>
+
+            <label class="attendance-option" for="attendingNo">
+              <input type="radio" id="attendingNo" name="attending" value="false">
+              <span class="radio-circle"></span>
+              <span class="attendance-label">Declines with Regret.</span>
+            </label>
+          </div>
+
+          <div id="declineReasonContainer" class="decline-reason-container" style="display: none;">
+            <label class="form-label" for="declineReason">Reason for declining (Optional)</label>
+            <textarea id="declineReason" class="form-textarea" rows="2" placeholder="Let us know why you won't be able to make it (optional)..."></textarea>
+          </div>
+        </fieldset>
+
+        <!-- Section 3: Guest Options -->
+        <fieldset class="rsvp-box" id="guestsSection">
+          <legend class="box-legend">Please select your guest options</legend>
+          <div class="grid-2col">
+            <div class="form-group">
+              <label class="form-label" for="guestsCount">Additional Guests</label>
+              <div class="select-wrapper">
+                <select id="guestsCount" name="guestsCount" class="rsvp-select">
+                  <option value="0">None</option>
+                  <option value="1">1 Guest</option>
+                  <option value="2">2 Guests</option>
+                  <option value="3">3 Guests</option>
+                  <option value="4">4 Guests</option>
+                  <option value="5">5 Guests</option>
+                </select>
+                <div class="select-arrow"></div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Total Headcount</label>
+              <div class="read-only-display" id="headcountDisplay">
+                1 Attendee (You)
+              </div>
+            </div>
+          </div>
+
+          <div id="guestDetailsContainer" class="guest-details-container" style="display: none;">
+            <div class="guest-details-title">Details for Additional Guests</div>
+            <div id="guestFieldsList" class="guest-fields-list"></div>
+          </div>
+        </fieldset>
+
+        <!-- Submit Button -->
+        <div class="button-container">
+          <button type="submit" class="btn-send" id="submitBtn">
+            <svg class="mail-icon" viewBox="0 0 24 24">
+              <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+            </svg>
+            <span>SEND</span>
+          </button>
+        </div>
+
+        <div id="alertError" class="alert-error"></div>
+      </form>
+    </div>
+
+    <!-- Thank You View (Shown after submission, matching thankyou.jpg) -->
+    <div id="thankYouView" class="thank-you-view">
+      <div class="thank-you-card">
+        <img src="data:image/jpeg;base64,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888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888wz3/ANee/PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPOMQz0v8A3ucIB3xvzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzjMMctfIP+gDysMPnzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzsMMNE/gEc/qTywMNDTzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzziKJDBLwoJP89XyYIttXzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzyoMMMQrwIPfu/wC95DHqEI/8888888888888888888888888888sJDDBCdwHRCu2ffqDXrcCB88888888888888888888888888888IDDV+9DgjuW3MUHD/vQCS88888888888888888888888888888qhG04hTcJQlt0twzz/qD/wDPPPPPPPPPPPPPPPPPPPPPPPPPPPPPAhl4gkHVLoDnPgIXfAkfPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPCTggA1C/qgAFZmX/UAhvGvPPPPPPPPPPPPPPPPPPPPPPPPPPPPPOijCUPg3uPt/wB5II0MfzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzxkwzybzuSPguM0F4MMd3zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzy7jLK9zhA/nUVlggINHzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzwkNKGc45qY5AnyoVb7zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzwo89/wD/ACm9Omrb/PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPGdfcZnPPPPPPPPPPPPPPPPPPPPPPPPPPPP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" alt="Thank you for your submission!" class="thank-you-img">
+        <div class="thank-you-actions">
+          <button type="button" class="btn-subtle" id="resetBtn">
+            ← Submit another RSVP
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentEventId = null;
+
+    const rsvpView = document.getElementById('rsvpView');
+    const thankYouView = document.getElementById('thankYouView');
+    const form = document.getElementById('rsvpForm');
+    const attendingYes = document.getElementById('attendingYes');
+    const attendingNo = document.getElementById('attendingNo');
+    const guestsCountSelect = document.getElementById('guestsCount');
+    const headcountDisplay = document.getElementById('headcountDisplay');
+    const submitBtn = document.getElementById('submitBtn');
+    const alertError = document.getElementById('alertError');
+    const resetBtn = document.getElementById('resetBtn');
+    const declineReasonContainer = document.getElementById('declineReasonContainer');
+    const declineReason = document.getElementById('declineReason');
+    const guestDetailsContainer = document.getElementById('guestDetailsContainer');
+    const guestFieldsList = document.getElementById('guestFieldsList');
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    async function checkEventFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const slug = params.get('event');
+      if (slug) {
+        try {
+          const res = await fetch('/events/detail?slug=' + encodeURIComponent(slug));
+          if (res.ok) {
+            const data = await res.json();
+            const ev = data.event;
+            currentEventId = ev.id;
+            document.getElementById('eventInfoBanner').style.display = 'block';
+            document.getElementById('eventTitleDisplay').textContent = ev.title;
+            const metaParts = [ev.event_date, ev.location].filter(Boolean);
+            document.getElementById('eventMetaDisplay').textContent = metaParts.join(' • ');
+            if (ev.respond_by) {
+              document.getElementById('introLegend').innerHTML = 'Kindly respond by <strong>' + escapeHtml(ev.respond_by) + '</strong>. We look forward to celebrating with you!';
+            }
+          }
+        } catch (err) {
+          console.warn('Could not load event:', err);
+        }
+      }
+    }
+
+    function showThankYou() {
+      rsvpView.style.display = 'none';
+      thankYouView.style.display = 'flex';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function showForm() {
+      thankYouView.style.display = 'none';
+      rsvpView.style.display = 'block';
+      form.reset();
+      updateAttendance();
+      submitBtn.disabled = false;
+      submitBtn.querySelector('span').textContent = 'SEND';
+      alertError.style.display = 'none';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updateGuestInputs() {
+      const count = parseInt(guestsCountSelect.value, 10) || 0;
+      if (count <= 0 || attendingNo.checked) {
+        guestDetailsContainer.style.display = 'none';
+        guestFieldsList.innerHTML = '';
+        return;
+      }
+
+      guestDetailsContainer.style.display = 'block';
+
+      const existingData = Array.from(guestFieldsList.querySelectorAll('.guest-card')).map(card => ({
+        fn: card.querySelector('.guest-fn')?.value || '',
+        ln: card.querySelector('.guest-ln')?.value || '',
+        em: card.querySelector('.guest-em')?.value || '',
+        diet: card.querySelector('.guest-diet')?.value || ''
+      }));
+
+      guestFieldsList.innerHTML = '';
+
+      for (let i = 1; i <= count; i++) {
+        const prev = existingData[i - 1] || { fn: '', ln: '', em: '', diet: '' };
+        const card = document.createElement('div');
+        card.className = 'guest-card';
+        card.innerHTML = `
+          <div class="guest-card-header">
+            <span class="guest-badge">Guest ${i}</span>
+          </div>
+          <div class="grid-2col" style="margin-top: 0; row-gap: 12px; column-gap: 16px;">
+            <div class="form-group">
+              <label class="form-label" style="font-size: 12.5px;">First Name</label>
+              <input type="text" class="form-input guest-fn" placeholder="Guest first name" value="${escapeHtml(prev.fn)}" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="font-size: 12.5px;">Last Name</label>
+              <input type="text" class="form-input guest-ln" placeholder="Guest last name" value="${escapeHtml(prev.ln)}" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="font-size: 12.5px;">Email</label>
+              <input type="email" class="form-input guest-em" placeholder="guest@example.com (optional)" value="${escapeHtml(prev.em)}">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="font-size: 12.5px;">Dietary Options</label>
+              <div class="select-wrapper">
+                <select class="rsvp-select guest-diet">
+                  <option value="" ${prev.diet === '' ? 'selected' : ''}>No dietary restrictions</option>
+                  <option value="Vegetarian" ${prev.diet === 'Vegetarian' ? 'selected' : ''}>Vegetarian</option>
+                  <option value="Vegan" ${prev.diet === 'Vegan' ? 'selected' : ''}>Vegan</option>
+                  <option value="Gluten-Free" ${prev.diet === 'Gluten-Free' ? 'selected' : ''}>Gluten-Free</option>
+                  <option value="Halal" ${prev.diet === 'Halal' ? 'selected' : ''}>Halal</option>
+                  <option value="Kosher" ${prev.diet === 'Kosher' ? 'selected' : ''}>Kosher</option>
+                  <option value="Dairy-Free" ${prev.diet === 'Dairy-Free' ? 'selected' : ''}>Dairy-Free</option>
+                  <option value="Nut Allergy" ${prev.diet === 'Nut Allergy' ? 'selected' : ''}>Nut Allergy</option>
+                  <option value="Other" ${prev.diet === 'Other' ? 'selected' : ''}>Other</option>
+                </select>
+                <div class="select-arrow"></div>
+              </div>
+            </div>
+          </div>
+        `;
+        guestFieldsList.appendChild(card);
+      }
+    }
+
+    function updateAttendance() {
+      if (attendingNo.checked) {
+        declineReasonContainer.style.display = 'block';
+        guestsCountSelect.value = "0";
+        guestsCountSelect.disabled = true;
+        headcountDisplay.textContent = "0 Attendees (Declined)";
+        updateGuestInputs();
+      } else {
+        declineReasonContainer.style.display = 'none';
+        guestsCountSelect.disabled = false;
+        const count = parseInt(guestsCountSelect.value, 10) || 0;
+        if (count === 0) {
+          headcountDisplay.textContent = "1 Attendee (You)";
+        } else {
+          headcountDisplay.textContent = `${count + 1} Attendees (You + ${count} ${count === 1 ? 'Guest' : 'Guests'})`;
+        }
+        updateGuestInputs();
+      }
+    }
+
+    attendingYes.addEventListener('change', updateAttendance);
+    attendingNo.addEventListener('change', updateAttendance);
+    guestsCountSelect.addEventListener('change', updateAttendance);
+
+    resetBtn.addEventListener('click', () => {
+      if (window.location.hash === '#thankyou') {
+        history.pushState(null, '', window.location.pathname + window.location.search);
+      }
+      showForm();
+    });
+
+    if (window.location.hash === '#thankyou') {
+      showThankYou();
+    }
+
+    window.addEventListener('popstate', () => {
+      if (window.location.hash === '#thankyou') {
+        showThankYou();
+      } else {
+        showForm();
+      }
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertError.style.display = 'none';
+
+      const firstName = document.getElementById('firstName').value.trim();
+      const lastName = document.getElementById('lastName').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const attendingVal = document.querySelector('input[name="attending"]:checked');
+
+      if (!attendingVal) {
+        alertError.textContent = 'Please indicate whether you will be attending.';
+        alertError.style.display = 'block';
+        return;
+      }
+
+      const isAttending = attendingVal.value === 'true';
+      const guestsCount = isAttending ? (parseInt(guestsCountSelect.value, 10) || 0) : 0;
+      const fullName = `${firstName} ${lastName}`.trim();
+      const mainDietary = document.getElementById('dietary') ? document.getElementById('dietary').value.trim() : '';
+
+      const guestInputs = [];
+      if (isAttending && guestsCount > 0) {
+        const cards = guestFieldsList.querySelectorAll('.guest-card');
+        cards.forEach(card => {
+          const fn = card.querySelector('.guest-fn')?.value.trim() || '';
+          const ln = card.querySelector('.guest-ln')?.value.trim() || '';
+          const em = card.querySelector('.guest-em')?.value.trim() || '';
+          const diet = card.querySelector('.guest-diet')?.value.trim() || '';
+          if (fn || ln) {
+            let desc = `${fn} ${ln}`.trim();
+            if (em) desc += ` (${em})`;
+            if (diet) desc += ` • Dietary: ${diet}`;
+            guestInputs.push(desc);
+          }
+        });
+      }
+
+      const declineReasonText = !isAttending ? declineReason.value.trim() : '';
+
+      submitBtn.disabled = true;
+      submitBtn.querySelector('span').textContent = 'SENDING...';
+
+      try {
+        const payload = {
+          name: fullName,
+          email: email,
+          dietary: mainDietary,
+          attending: isAttending,
+          guests_count: guestsCount,
+          guest_details: isAttending ? guestInputs : [],
+          decline_reason: declineReasonText
+        };
+        if (currentEventId) {
+          payload.event_id = currentEventId;
+        }
+
+        const response = await fetch('/rsvp', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          history.pushState(null, '', '#thankyou');
+          showThankYou();
+        } else {
+          const errorMsg = await response.text();
+          alertError.textContent = errorMsg || 'An error occurred while submitting your RSVP.';
+          alertError.style.display = 'block';
+          submitBtn.disabled = false;
+          submitBtn.querySelector('span').textContent = 'SEND';
+        }
+      } catch (err) {
+        alertError.textContent = 'Unable to connect to the server. Please try again.';
+        alertError.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.querySelector('span').textContent = 'SEND';
+      }
+    });
+
+    checkEventFromUrl();
+</script>
+</body>
+</html>
