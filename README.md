@@ -1,6 +1,7 @@
+### to start :
 first - go mod tidy
 psql
-run this query:
+### run this query:
 
 CREATE DATABASE rsvp_db;
 
@@ -16,12 +17,12 @@ CREATE TABLE IF NOT EXISTS rsvps (
 );
 
 
-windows: 
+### windows: 
 
 PS C:\Users\Clay\go-rsvp> $env:DATABASE_URL="postgres://postgres:PASSWORD@localhost:5432/rsvp_db?sslmode=disable"
 PS C:\Users\Clay\go-rsvp> go run .                                         
 
-linux/ubuntu: 
+### linux/ubuntu: 
 
 DATABASE_URL="postgres://postgres:PASSWORD@localhost:5432/rsvp_db?sslmode=disable" go run .
 
