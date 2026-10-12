@@ -52,9 +52,8 @@ func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !*req.Attending && req.GuestsCount > 0 {
-		http.Error(w, "Cannot specify guests if attending is false", http.StatusBadRequest)
-		return
+	if !*req.Attending {
+		req.GuestsCount = 0
 	}
 
 	if req.GuestsCount > 5 {
