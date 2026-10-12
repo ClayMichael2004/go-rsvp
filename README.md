@@ -26,3 +26,15 @@ linux/ubuntu:
 DATABASE_URL="postgres://postgres:PASSWORD@localhost:5432/rsvp_db?sslmode=disable" go run .
 
 remember: After postgres: <insert your postgres password and not how it is as of now>. Port also to be changed based on the port you are using at the moment
+
+### postgres database connection
+
+## Start the Database Server
+pg_ctl -D /home/michaelochieng0/postgres_data -o "-p 5433" start
+
+## Connect to the Database (this also allows you to interact with the db via terminal)
+psql -h 127.0.0.1 -p 5433 -U michaelochieng0 -d rsvp_db 
+
+## Stop the Database Server
+pg_ctl -D /home/michaelochieng0/postgres_data stop
+`
