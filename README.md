@@ -26,6 +26,9 @@ PS C:\Users\Clay\go-rsvp> go run .
 
 DATABASE_URL="postgres://postgres:PASSWORD@localhost:5432/rsvp_db?sslmode=disable" go run .
 
+## at work use:
+ DATABASE_URL="postgres://michaelochieng0@127.0.0.1:5433/rsvp_db?sslmode=disable" go run .
+
 remember: After postgres: <insert your postgres password and not how it is as of now>. Port also to be changed based on the port you are using at the moment
 
 ### postgres database connection
