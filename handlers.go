@@ -1,21 +1,84 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"embed"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/mail"
+	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
+
+//go:embed static/*
+var staticFS embed.FS
 
 type Server struct {
 	DB *pgxpool.Pool
+}
+
+func slugify(title string) string {
+	title = strings.ToLower(strings.TrimSpace(title))
+	var b strings.Builder
+	for _, r := range title {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		} else if r == ' ' || r == '-' || r == '_' {
+			if b.Len() > 0 && b.String()[b.Len()-1] != '-' {
+				b.WriteRune('-')
+			}
+		}
+	}
+	s := strings.Trim(b.String(), "-")
+	if len(s) > 50 {
+		s = s[:50]
+	}
+	if s == "" {
+		s = "event"
+	}
+	randSuffix := generateID()[:6]
+	return s + "-" + randSuffix
+}
+
+func (s *Server) GetAuthenticatedAdmin(r *http.Request) (*AdminUser, error) {
+	var token string
+	if cookie, err := r.Cookie("admin_session"); err == nil && cookie.Value != "" {
+		token = cookie.Value
+	} else {
+		authHeader := r.Header.Get("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			token = strings.TrimPrefix(authHeader, "Bearer ")
+		}
+	}
+
+	if token == "" {
+		return nil, errors.New("no session token provided")
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	var admin AdminUser
+	query := `
+		SELECT u.id, u.username, u.created_at
+		FROM admin_sessions s
+		JOIN admin_users u ON s.admin_id = u.id
+		WHERE s.token = $1 AND s.expires_at > CURRENT_TIMESTAMP;
+	`
+	err := s.DB.QueryRow(ctx, query, token).Scan(&admin.ID, &admin.Username, &admin.CreatedAt)
+	if err != nil {
+		return nil, errors.New("invalid or expired session")
+	}
+	return &admin, nil
 }
 
 func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
@@ -78,35 +141,77 @@ func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Field 'guests_count' cannot be negative", http.StatusBadRequest)
 		return
 	}
+
+	req.Dietary = strings.TrimSpace(req.Dietary)
+	if len(req.Dietary) > 100 {
+		req.Dietary = req.Dietary[:100]
+	}
+
+	cleanGuests := make([]string, 0)
+	req.DeclineReason = strings.TrimSpace(req.DeclineReason)
+	if len(req.DeclineReason) > 500 {
+		req.DeclineReason = req.DeclineReason[:500]
+	}
+
 	if !*req.Attending {
 		req.GuestsCount = 0
-	} else if req.GuestsCount > 5 {
-		http.Error(w, "Maximum allowed guests per RSVP is 5", http.StatusBadRequest)
-		return
+		req.GuestDetails = []string{}
+	} else {
+		req.DeclineReason = ""
+		if req.GuestsCount > 5 {
+			http.Error(w, "Maximum allowed guests per RSVP is 5", http.StatusBadRequest)
+			return
+		}
+		for _, g := range req.GuestDetails {
+			trimmed := strings.TrimSpace(g)
+			if trimmed != "" {
+				if len(trimmed) > 200 {
+					trimmed = trimmed[:200]
+				}
+				cleanGuests = append(cleanGuests, trimmed)
+			}
+		}
 	}
+	req.GuestDetails = cleanGuests
 
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
 	query := `
-	INSERT INTO rsvps (name, email, attending, guests_count, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	INSERT INTO rsvps (event_id, name, email, dietary, attending, guests_count, guest_details, decline_reason, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	ON CONFLICT (email) DO UPDATE
-	SET attending = EXCLUDED.attending,
+	SET event_id = COALESCE(EXCLUDED.event_id, rsvps.event_id),
+	    attending = EXCLUDED.attending,
 	    guests_count = EXCLUDED.guests_count,
+	    guest_details = EXCLUDED.guest_details,
+	    dietary = EXCLUDED.dietary,
+	    decline_reason = EXCLUDED.decline_reason,
 	    name = EXCLUDED.name,
 	    updated_at = CURRENT_TIMESTAMP
 	RETURNING id, created_at, updated_at;
 	`
 
 	var rsvp RSVP
+	rsvp.EventID = req.EventID
 	rsvp.Name = req.Name
 	rsvp.Email = req.Email
+	rsvp.Dietary = req.Dietary
 	rsvp.Attending = *req.Attending
 	rsvp.GuestsCount = req.GuestsCount
+	rsvp.GuestDetails = req.GuestDetails
+	rsvp.DeclineReason = req.DeclineReason
 
-	err = s.DB.QueryRow(ctx, query, rsvp.Name, rsvp.Email, rsvp.Attending, rsvp.GuestsCount).
-		Scan(&rsvp.ID, &rsvp.CreatedAt, &rsvp.UpdatedAt)
+	err = s.DB.QueryRow(ctx, query,
+		rsvp.EventID,
+		rsvp.Name,
+		rsvp.Email,
+		rsvp.Dietary,
+		rsvp.Attending,
+		rsvp.GuestsCount,
+		rsvp.GuestDetails,
+		rsvp.DeclineReason,
+	).Scan(&rsvp.ID, &rsvp.CreatedAt, &rsvp.UpdatedAt)
 	if err != nil {
 		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -143,19 +248,35 @@ func (s *Server) HandleListRSVPs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var eventID *int
+	if eStr := queryValues.Get("event_id"); eStr != "" {
+		if e, err := strconv.Atoi(eStr); err == nil {
+			eventID = &e
+		}
+	}
+
+	var attending *bool
+	if aStr := queryValues.Get("attending"); aStr != "" {
+		if a, err := strconv.ParseBool(aStr); err == nil {
+			attending = &a
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
 	query := `
-		SELECT id, name, email, attending, guests_count, created_at, updated_at 
+		SELECT id, event_id, name, email, COALESCE(dietary, ''), attending, guests_count, COALESCE(guest_details, '{}'), COALESCE(decline_reason, ''), created_at, updated_at 
 		FROM rsvps 
+		WHERE ($1::int IS NULL OR event_id = $1)
+		  AND ($2::boolean IS NULL OR attending = $2)
 		ORDER BY created_at DESC
-		LIMIT $1 OFFSET $2;
+		LIMIT $3 OFFSET $4;
 	`
 
-	rows, err := s.DB.Query(ctx, query, limit, offset)
+	rows, err := s.DB.Query(ctx, query, eventID, attending, limit, offset)
 	if err != nil {
-		http.Error(w, "Failed to query RSVPs", http.StatusInternalServerError)
+		http.Error(w, "Failed to query RSVPs: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -165,15 +286,22 @@ func (s *Server) HandleListRSVPs(w http.ResponseWriter, r *http.Request) {
 		var item RSVP
 		if err := rows.Scan(
 			&item.ID,
+			&item.EventID,
 			&item.Name,
 			&item.Email,
+			&item.Dietary,
 			&item.Attending,
 			&item.GuestsCount,
+			&item.GuestDetails,
+			&item.DeclineReason,
 			&item.CreatedAt,
 			&item.UpdatedAt,
 		); err != nil {
-			http.Error(w, "Failed to parse records", http.StatusInternalServerError)
+			http.Error(w, "Failed to parse records: "+err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if item.GuestDetails == nil {
+			item.GuestDetails = []string{}
 		}
 		rsvps = append(rsvps, item)
 	}
@@ -188,6 +316,13 @@ func (s *Server) HandleRSVPStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var eventID *int
+	if eStr := r.URL.Query().Get("event_id"); eStr != "" {
+		if e, err := strconv.Atoi(eStr); err == nil {
+			eventID = &e
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
@@ -197,11 +332,12 @@ func (s *Server) HandleRSVPStats(w http.ResponseWriter, r *http.Request) {
 			COUNT(*) FILTER (WHERE attending = true) AS attending_count,
 			COUNT(*) FILTER (WHERE attending = false) AS declined_count,
 			COALESCE(COUNT(*) FILTER (WHERE attending = true) + SUM(guests_count) FILTER (WHERE attending = true), 0) AS total_headcount
-		FROM rsvps;
+		FROM rsvps
+		WHERE ($1::int IS NULL OR event_id = $1);
 	`
 
 	var stats RSVPStats
-	err := s.DB.QueryRow(ctx, query).Scan(
+	err := s.DB.QueryRow(ctx, query, eventID).Scan(
 		&stats.TotalResponses,
 		&stats.AttendingCount,
 		&stats.DeclinedCount,
@@ -214,4 +350,222 @@ func (s *Server) HandleRSVPStats(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
+}
+
+func (s *Server) HandleCreateEvent(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Verify admin authentication
+	if _, err := s.GetAuthenticatedAdmin(r); err != nil {
+		http.Error(w, "Unauthorized: Admin login required", http.StatusUnauthorized)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
+
+	var req CreateEventRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+
+	if err := dec.Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON payload: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	req.Title = strings.TrimSpace(req.Title)
+	if req.Title == "" {
+		http.Error(w, "Event title is required", http.StatusBadRequest)
+		return
+	}
+	if len(req.Title) > 200 {
+		http.Error(w, "Event title cannot exceed 200 characters", http.StatusBadRequest)
+		return
+	}
+
+	req.Slug = strings.TrimSpace(req.Slug)
+	if req.Slug == "" {
+		req.Slug = slugify(req.Title)
+	} else {
+		req.Slug = strings.ToLower(req.Slug)
+		var b strings.Builder
+		for _, r := range req.Slug {
+			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+				b.WriteRune(r)
+			}
+		}
+		req.Slug = strings.Trim(b.String(), "-")
+		if req.Slug == "" {
+			req.Slug = slugify(req.Title)
+		}
+	}
+
+	req.Description = strings.TrimSpace(req.Description)
+	req.EventDate = strings.TrimSpace(req.EventDate)
+	req.Location = strings.TrimSpace(req.Location)
+	req.RespondBy = strings.TrimSpace(req.RespondBy)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	query := `
+		INSERT INTO events (title, slug, description, event_date, location, respond_by, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+		RETURNING id, created_at;
+	`
+
+	var event Event
+	event.Title = req.Title
+	event.Slug = req.Slug
+	event.Description = req.Description
+	event.EventDate = req.EventDate
+	event.Location = req.Location
+	event.RespondBy = req.RespondBy
+
+	err := s.DB.QueryRow(ctx, query, event.Title, event.Slug, event.Description, event.EventDate, event.Location, event.RespondBy).
+		Scan(&event.ID, &event.CreatedAt)
+	if err != nil {
+		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(event)
+}
+
+func (s *Server) HandleListEvents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT id, title, slug, description, event_date, location, respond_by, created_at
+		FROM events
+		ORDER BY created_at DESC;
+	`
+
+	rows, err := s.DB.Query(ctx, query)
+	if err != nil {
+		http.Error(w, "Failed to query events: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	events := make([]Event, 0)
+	for rows.Next() {
+		var e Event
+		if err := rows.Scan(
+			&e.ID,
+			&e.Title,
+			&e.Slug,
+			&e.Description,
+			&e.EventDate,
+			&e.Location,
+			&e.RespondBy,
+			&e.CreatedAt,
+		); err != nil {
+			http.Error(w, "Failed to parse records: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		events = append(events, e)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(events)
+}
+
+func (s *Server) HandleGetEventDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	slug := strings.TrimSpace(r.URL.Query().Get("slug"))
+	idStr := strings.TrimSpace(r.URL.Query().Get("id"))
+
+	if slug == "" && idStr == "" {
+		http.Error(w, "Either slug or id is required", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	var event Event
+	var err error
+	if slug != "" {
+		query := `
+			SELECT id, title, slug, description, event_date, location, respond_by, created_at
+			FROM events
+			WHERE slug = $1;
+		`
+		err = s.DB.QueryRow(ctx, query, slug).Scan(
+			&event.ID,
+			&event.Title,
+			&event.Slug,
+			&event.Description,
+			&event.EventDate,
+			&event.Location,
+			&event.RespondBy,
+			&event.CreatedAt,
+		)
+	} else {
+		id, convErr := strconv.Atoi(idStr)
+		if convErr != nil {
+			http.Error(w, "Invalid event id", http.StatusBadRequest)
+			return
+		}
+		query := `
+			SELECT id, title, slug, description, event_date, location, respond_by, created_at
+			FROM events
+			WHERE id = $1;
+		`
+		err = s.DB.QueryRow(ctx, query, id).Scan(
+			&event.ID,
+			&event.Title,
+			&event.Slug,
+			&event.Description,
+			&event.EventDate,
+			&event.Location,
+			&event.RespondBy,
+			&event.CreatedAt,
+		)
+	}
+
+	if err != nil {
+		http.Error(w, "Event not found", http.StatusNotFound)
+		return
+	}
+
+	statsQuery := `
+		SELECT 
+			COUNT(*) AS total_responses,
+			COUNT(*) FILTER (WHERE attending = true) AS attending_count,
+			COUNT(*) FILTER (WHERE attending = false) AS declined_count,
+			COALESCE(COUNT(*) FILTER (WHERE attending = true) + SUM(guests_count) FILTER (WHERE attending = true), 0) AS total_headcount
+		FROM rsvps
+		WHERE event_id = $1;
+	`
+	var stats RSVPStats
+	_ = s.DB.QueryRow(ctx, statsQuery, event.ID).Scan(
+		&stats.TotalResponses,
+		&stats.AttendingCount,
+		&stats.DeclinedCount,
+		&stats.TotalHeadcount,
+	)
+
+	resp := EventDetailResponse{
+		Event: event,
+		Stats: stats,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
