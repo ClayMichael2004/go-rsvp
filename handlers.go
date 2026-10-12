@@ -126,3 +126,35 @@ func (s *Server) HandleListRSVPs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rsvps)
 }
+
+func (s *Server) HandleRSVPStats(w http.ResponseWriter, r *http.Request){
+	if r.Method != http.MethodGet{
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	query:= `
+	SELECT 
+		COUNT(*) AS total_responses,
+		COUNT(*) FILTER (WHERE attending = true) AS attending_count,
+		COUNT(*) FILTER (WHERE attending = false) AS declined_count,
+		COALESCE(COUNT(*) FILTER (WHERE attending = true) + SUM(guests_count) FILTER (WHERE attending = true), 0) AS total_headcount
+	FROM rsvps;
+	`
+
+	var stats RSVPStats
+	err:= s.DB.QueryRow(ctx, query).Scan(
+		&stats.TotalResponses,
+		&stats.AttendingCount,
+		&stats.DeclinedCount,
+		&stats.TotalHeadcount,
+	)
+	if err!=nil{
+		http.Error(w, "Failed to compute stats: " + err.Error(), http.StatusInternalServerError)
+		return 
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
