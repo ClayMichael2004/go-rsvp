@@ -119,15 +119,17 @@ func main() {
 	mux.HandleFunc("GET /events", srv.HandleListEvents)
 	mux.HandleFunc("GET /events/detail", srv.HandleGetEventDetail)
 
-	// Middleware chain: Recovery -> Tracing (sets ID) -> Logging (logs ID & timing) -> Mux
-	handler := recoverMiddleware(TracingMiddleware(LoggingMiddleware(mux)))
+	// Middleware chain: Recovery -> Security Headers -> Tracing (sets ID) -> Logging (logs ID & timing) -> Mux
+	handler := recoverMiddleware(SecurityHeadersMiddleware(TracingMiddleware(LoggingMiddleware(mux))))
 
 	httpServer := &http.Server{
-		Addr:         ":8080",
-		Handler:      handler,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              ":8080",
+		Handler:           handler,
+		ReadHeaderTimeout: 3 * time.Second,
+		ReadTimeout:       5 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	stopChan := make(chan os.Signal, 1)
