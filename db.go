@@ -67,6 +67,7 @@ func MigrateDB(pool *pgxpool.Pool) error {
 		password := os.Getenv("ADMIN_PASSWORD")
 		if password == "" {
 			password = "admin123"
+			log.Println("SECURITY WARNING: ADMIN_PASSWORD environment variable is not set; seeded default admin with insecure credentials. Change immediately before deploying to production!")
 		}
 		hash, hashErr := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		if hashErr == nil {
@@ -78,35 +79,5 @@ func MigrateDB(pool *pgxpool.Pool) error {
 }
 
 func InitDB() *pgxpool.Pool {
-	connStr := os.Getenv("DATABASE_URL")
-	if connStr == "" {
-		connStr = "postgres://postgres:postgres@localhost:5433/rsvp_db?sslmode=disable"
-	}
-
-	config, err := pgxpool.ParseConfig(connStr)
-	if err != nil {
-		log.Fatalf("Unable to parse DB config: %v\n", err)
-	}
-	config.MaxConns = 10
-	config.MinConns = 2
-	config.MaxConnLifetime = 1 * time.Hour
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	pool, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		log.Fatalf("Unable to create connection pool %v\n", err)
-	}
-
-	if err := pool.Ping(ctx); err != nil {
-		log.Fatalf("Unable to connect to database: %v\n", err)
-	}
-
-	if err := MigrateDB(pool); err != nil {
-		log.Fatalf("Unable to migrate database: %v\n", err)
-	}
-
-	fmt.Println("postgres database connected successfuly")
-	return pool
+	return initDB()
 }
