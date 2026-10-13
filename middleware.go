@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 )
@@ -17,8 +19,23 @@ const requestIDKey contextKey = "request_id"
 
 func generateID() string {
 	b := make([]byte, 16)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		slog.Error("crypto_rand_read_failed", slog.String("error", err.Error()))
+		return fmt.Sprintf("%x%x", time.Now().UnixNano(), os.Getpid())
+	}
 	return hex.EncodeToString(b)
+}
+
+func isValidRequestID(id string) bool {
+	if len(id) == 0 || len(id) > 64 {
+		return false
+	}
+	for _, r := range id {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 func GetRequestID(ctx context.Context) string {
@@ -58,7 +75,7 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 func TracingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqID := r.Header.Get("X-Request-Id")
-		if reqID == "" {
+		if !isValidRequestID(reqID) {
 			reqID = generateID()
 		}
 
