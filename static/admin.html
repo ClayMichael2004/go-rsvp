@@ -14,13 +14,24 @@
       padding: 0;
     }
 
+    html, body {
+      height: 100%;
+      min-height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      background-color: #f1f4f2;
+      background-color: #132221;
       color: #2c332e;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      min-height: 100vh;
       display: flex;
       flex-direction: column;
+      transition: background-color 0.25s ease;
+    }
+
+    body.dashboard-view-active {
+      background-color: #f1f4f2;
     }
 
     /* ============================================================
@@ -30,9 +41,10 @@
       flex: 1;
       min-height: 100vh;
       width: 100%;
-      background: radial-gradient(ellipse at 50% 35%, #344f4d 0%, #203432 55%, #132221 100%);
+      background: radial-gradient(ellipse at 50% 35%, #385552 0%, #203533 55%, #132221 100%);
       display: flex;
       flex-direction: column;
+      justify-content: space-between;
       position: relative;
     }
 
@@ -48,7 +60,7 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      color: #a4bebb;
+      color: #9cb5b1;
       text-decoration: none;
       font-size: 13.5px;
       font-weight: 500;
@@ -88,10 +100,11 @@
     }
 
     .login-emblem {
-      margin-bottom: 32px;
+      margin-bottom: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
+      filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.25));
     }
 
     .login-form-box {
@@ -100,28 +113,30 @@
       text-align: left;
     }
 
+    /* Cohesive Grouped Inputs matching loginpageinspo.jpg */
     .login-inputs-group {
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      background: rgba(255, 255, 255, 0.03);
-      border-radius: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.16);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 4px;
       overflow: hidden;
-      transition: border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
+      transition: border-color 0.2s ease, background 0.2s ease;
     }
 
     .login-inputs-group:focus-within {
-      background: rgba(255, 255, 255, 0.05);
-      border-color: rgba(255, 255, 255, 0.32);
-      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.035);
+      border-top-color: rgba(255, 255, 255, 0.28);
+      border-bottom-color: rgba(255, 255, 255, 0.28);
     }
 
     .dark-form-group {
-      padding: 13px 16px 11px;
+      padding: 14px 14px 10px;
       position: relative;
-      transition: background-color 0.2s ease;
+      transition: background 0.15s ease;
     }
 
     .dark-form-group:not(:last-child) {
-      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.16);
     }
 
     .dark-form-label {
@@ -130,7 +145,7 @@
       font-weight: 600;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: #9cb5b1;
+      color: #8ea7a3;
       margin-bottom: 4px;
       user-select: none;
     }
@@ -139,15 +154,15 @@
       width: 100%;
       background: transparent;
       border: none;
-      padding: 4px 0;
+      padding: 6px 0;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 14.5px;
+      font-size: 15px;
       color: #ffffff;
       outline: none;
     }
 
     .dark-form-input::placeholder {
-      color: rgba(255, 255, 255, 0.32);
+      color: rgba(255, 255, 255, 0.28);
     }
 
     /* WebKit / Blink Autofill normalization:
@@ -328,6 +343,80 @@
 
     @keyframes spinFeedback {
       to { transform: rotate(360deg); }
+    }
+
+    /* Smooth View Transitions */
+    #adminLoginView, #adminDashboardView {
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    .view-transition-fadeout {
+      opacity: 0 !important;
+      transform: translateY(-6px) scale(0.99) !important;
+      pointer-events: none;
+    }
+
+    .view-transition-fadein {
+      animation: fadeInView 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes fadeInView {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Toast Notification Container */
+    .toast-container {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .toast-pill {
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: #1b4332;
+      color: #ffffff;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 13.5px;
+      font-weight: 500;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .toast-pill.toast-error {
+      background: #b91c1c;
+    }
+
+    .toast-pill.toast-fadeout {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+
+    @keyframes toastSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-12px) scale(0.96);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
     }
 
     /* ============================================================
@@ -1007,10 +1096,30 @@
       line-height: 1;
     }
 
+    #createEventForm {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
     .modal-body {
       padding: 20px 28px;
       overflow-y: auto;
       flex: 1;
+      min-height: 0;
+    }
+
+    .modal-footer {
+      padding: 16px 28px;
+      border-top: 1px solid #edf1ee;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      background-color: #fafbfa;
+      flex-shrink: 0;
     }
 
     .form-group {
@@ -1034,14 +1143,21 @@
       padding: 9px 12px;
       font-family: 'Inter', sans-serif;
       font-size: 13.5px;
+      line-height: 1.45;
       color: #2c332e;
-      transition: border-color 0.15s ease;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    }
+
+    .form-textarea {
+      min-height: 64px;
+      resize: vertical;
     }
 
     .form-input:focus, .form-textarea:focus {
       outline: none;
       border-color: #2d6a4f;
       background-color: #ffffff;
+      box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.12);
     }
 
     /* Creative Time Picker Row */
@@ -1115,6 +1231,8 @@
   </style>
 </head>
 <body>
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
   <!-- ============================================================
        1. ADMIN LOGIN VIEW (Inspired by loginpageinspo.jpg)
@@ -1136,9 +1254,11 @@
     <div class="login-center-wrapper">
       <!-- Minimalist geometric logo emblem matching loginpageinspo.jpg -->
       <div class="login-emblem">
-        <svg width="60" height="60" viewBox="0 0 48 48" fill="none">
-          <path d="M24 6L10 18V36L24 44L38 36V18L24 6Z" fill="#ffffff" fill-opacity="0.95"/>
-          <path d="M24 6L38 18V36L24 28V6Z" fill="#ffffff" fill-opacity="0.6"/>
+        <svg width="58" height="58" viewBox="0 0 48 48" fill="none">
+          <!-- Left origami facet: crisp white -->
+          <polygon points="24,18 10,9 10,29 24,39" fill="#ffffff" />
+          <!-- Right origami facet: shaded teal-slate -->
+          <polygon points="24,18 38,9 38,29 24,39" fill="rgba(255, 255, 255, 0.62)" />
         </svg>
       </div>
 
@@ -1505,7 +1625,7 @@
     const loginFeedback = document.getElementById('loginFeedback');
     const loginSubmitBtn = document.getElementById('loginSubmitBtn');
 
-    // UI Feedback Helper
+    // UI Feedback Helpers
     function showLoginFeedback(type, text) {
       if (!loginFeedback) return;
       loginFeedback.className = 'login-feedback-badge';
@@ -1541,6 +1661,20 @@
           <span>${escapeHtml(text || 'Invalid credentials. Please try again.')}</span>
         `;
       }
+    }
+
+    function showToast(msg, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = `toast-pill ${type === 'error' ? 'toast-error' : ''}`;
+      const icon = type === 'error' ? '⚠' : '✓';
+      toast.innerHTML = `<span style="font-weight:700;">${icon}</span> <span>${escapeHtml(msg)}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.add('toast-fadeout');
+        setTimeout(() => toast.remove(), 250);
+      }, 3500);
     }
 
     // Profile Dropdown Elements
@@ -1636,15 +1770,38 @@
       const details = encodeURIComponent(event.description || 'RSVP Event');
       const location = encodeURIComponent(event.location || '');
 
-      // Parse date and time if available
       let datesParam = '';
       if (event.event_date) {
-        // Look for YYYY-MM-DD in event_date or use today
-        const match = event.event_date.match(/(\d{4})-(\d{2})-(\d{2})/);
-        if (match) {
-          const y = match[1], m = match[2], d = match[3];
-          // Default start 18:00, end 21:00 if not parsed
+        const isoMatch = event.event_date.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) {
+          const y = isoMatch[1], m = isoMatch[2], d = isoMatch[3];
           datesParam = `${y}${m}${d}T180000/${y}${m}${d}T210000`;
+        } else {
+          const datePart = event.event_date.split('•')[0].trim();
+          const parsedDate = new Date(datePart);
+          if (!isNaN(parsedDate.getTime())) {
+            const y = parsedDate.getFullYear();
+            const m = String(parsedDate.getMonth() + 1).padStart(2, '0');
+            const d = String(parsedDate.getDate()).padStart(2, '0');
+
+            function parseTimeTo24(tStr) {
+              if (!tStr) return null;
+              const match = tStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+              if (!match) return null;
+              let h = parseInt(match[1], 10);
+              const min = match[2];
+              const ampm = match[3] ? match[3].toUpperCase() : '';
+              if (ampm === 'PM' && h < 12) h += 12;
+              if (ampm === 'AM' && h === 12) h = 0;
+              return `${String(h).padStart(2, '0')}${min}00`;
+            }
+
+            const timePart = event.event_date.split('•')[1] || '';
+            const times = timePart.split(/[–-]/).map(t => t.trim());
+            const startTime = parseTimeTo24(times[0]) || '180000';
+            const endTime = parseTimeTo24(times[1]) || '210000';
+            datesParam = `${y}${m}${d}T${startTime}/${y}${m}${d}T${endTime}`;
+          }
         }
       }
       if (!datesParam) {
@@ -1677,11 +1834,13 @@
     }
 
     function showLogin() {
+      document.body.classList.remove('dashboard-view-active');
       adminDashboardView.style.display = 'none';
       adminLoginView.style.display = 'flex';
     }
 
     function showDashboard() {
+      document.body.classList.add('dashboard-view-active');
       adminLoginView.style.display = 'none';
       adminDashboardView.style.display = 'flex';
       loadEvents();
@@ -1695,12 +1854,12 @@
         if (passInput) {
           const isPass = passInput.type === 'password';
           passInput.type = isPass ? 'text' : 'password';
-          togglePasswordBtn.title = isPass ? 'Hide password' : 'Show or hide password';
+          togglePasswordBtn.title = isPass ? 'Hide password' : 'Toggle password visibility';
         }
       });
     }
 
-    // 2. Login Submission with Status Feedback
+    // 2. Login Submission with Status Feedback & Smooth Transitions
     adminLoginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const username = document.getElementById('adminUsername').value.trim();
@@ -1725,15 +1884,24 @@
           // Friendly success state
           showLoginFeedback('success', 'Login successful! Welcome back, Admin.');
           loginSubmitBtn.className = 'dark-submit-btn btn-success';
-          loginSubmitBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 6px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Welcome Back!';
+          loginSubmitBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"></polyline></svg> Welcome Back!';
 
+          // Smooth transition after user clearly sees the success confirmation
           setTimeout(() => {
-            showDashboard();
-            adminLoginForm.reset();
-            showLoginFeedback(null);
-            loginSubmitBtn.className = 'dark-submit-btn';
-            loginSubmitBtn.disabled = false;
-            loginSubmitBtn.textContent = 'Login';
+            adminLoginView.classList.add('view-transition-fadeout');
+            setTimeout(() => {
+              showDashboard();
+              adminLoginView.classList.remove('view-transition-fadeout');
+              adminDashboardView.classList.add('view-transition-fadein');
+              adminLoginForm.reset();
+              showLoginFeedback(null);
+              loginSubmitBtn.className = 'dark-submit-btn';
+              loginSubmitBtn.disabled = false;
+              loginSubmitBtn.textContent = 'Login';
+              setTimeout(() => {
+                adminDashboardView.classList.remove('view-transition-fadein');
+              }, 400);
+            }, 300);
           }, 650);
         } else {
           const errText = await res.text();
@@ -1763,13 +1931,22 @@
       }
     });
 
-    // Logout
+    // Logout with Smooth Transition
     logoutBtn.addEventListener('click', async () => {
       profileDropdown.classList.remove('open');
+      adminDashboardView.classList.add('view-transition-fadeout');
       try {
         await fetch('/admin/logout', { method: 'POST' });
       } catch (e) {}
-      showLogin();
+      setTimeout(() => {
+        showLogin();
+        adminDashboardView.classList.remove('view-transition-fadeout');
+        adminLoginView.classList.add('view-transition-fadein');
+        showLoginFeedback(null);
+        setTimeout(() => {
+          adminLoginView.classList.remove('view-transition-fadein');
+        }, 400);
+      }, 250);
     });
 
     // 4. Quick Duration Chips for Time Picker
@@ -1793,6 +1970,10 @@
     async function loadEvents() {
       try {
         const res = await fetch('/events');
+        if (res.status === 401) {
+          showLogin();
+          return;
+        }
         if (res.ok) {
           eventsList = await res.json();
           populateEventDropdown();
@@ -1858,6 +2039,10 @@
     async function loadEventStatsAndRSVPs(eventId) {
       try {
         const statsRes = await fetch(`/rsvp/stats?event_id=${eventId}`);
+        if (statsRes.status === 401) {
+          showLogin();
+          return;
+        }
         if (statsRes.ok) {
           const stats = await statsRes.json();
           statResponses.textContent = stats.total_responses || 0;
@@ -1867,6 +2052,10 @@
         }
 
         const rsvpRes = await fetch(`/rsvp?event_id=${eventId}&limit=100`);
+        if (rsvpRes.status === 401) {
+          showLogin();
+          return;
+        }
         if (rsvpRes.ok) {
           allRSVPs = await rsvpRes.json();
           renderRSVPTables();
@@ -1935,6 +2124,12 @@
       statAttending.textContent = '0';
       statDeclined.textContent = '0';
       statHeadcount.textContent = '0';
+      shareUrlInput.value = '';
+      shareWhatsApp.href = '#';
+      shareTelegram.href = '#';
+      shareTwitter.href = '#';
+      shareEmail.href = '#';
+      shareGCal.href = '#';
       acceptedTableBody.innerHTML = `<tr><td colspan="5" class="empty-state">Select or create an event to see RSVPs.</td></tr>`;
       declinedTableBody.innerHTML = `<tr><td colspan="4" class="empty-state">Select or create an event to see RSVPs.</td></tr>`;
     }
@@ -1956,10 +2151,12 @@
 
     // Copy Link button
     copyLinkBtn.addEventListener('click', async () => {
+      if (!shareUrlInput.value) return;
       try {
         await navigator.clipboard.writeText(shareUrlInput.value);
         copyLinkBtn.textContent = 'Copied!';
         copyLinkBtn.style.backgroundColor = '#1b4332';
+        showToast('Invitation link copied to clipboard!', 'success');
         setTimeout(() => {
           copyLinkBtn.textContent = 'Copy Link';
           copyLinkBtn.style.backgroundColor = '#2d6a4f';
@@ -1968,6 +2165,7 @@
         shareUrlInput.select();
         document.execCommand('copy');
         copyLinkBtn.textContent = 'Copied!';
+        showToast('Invitation link copied to clipboard!', 'success');
         setTimeout(() => { copyLinkBtn.textContent = 'Copy Link'; }, 2000);
       }
     });
@@ -1976,9 +2174,13 @@
     openCreateModalBtn.addEventListener('click', () => {
       createEventModal.style.display = 'flex';
       createEventForm.reset();
+      delete newEventSlug.dataset.manual;
       // Set default date to 2 weeks from now
       const d = new Date();
       d.setDate(d.getDate() + 14);
+      const todayStr = new Date().toISOString().split('T')[0];
+      newEventDatePicker.min = todayStr;
+      newEventRespondByPicker.min = todayStr;
       newEventDatePicker.value = d.toISOString().split('T')[0];
       newEventStartTime.value = '18:00';
       newEventEndTime.value = '21:00';
@@ -1998,7 +2200,7 @@
       e.preventDefault();
       const saveBtn = document.getElementById('saveEventBtn');
       saveBtn.disabled = true;
-      saveBtn.textContent = 'Saving...';
+      saveBtn.innerHTML = '<span class="btn-spinner btn-spinner-white"></span> Launching Event...';
 
       const title = newEventTitle.value.trim();
       const slug = newEventSlug.value.trim();
@@ -2036,12 +2238,13 @@
           // Select newly created event
           eventSelect.value = created.slug;
           selectEvent(created);
+          showToast(`Event "${created.title}" launched successfully!`, 'success');
         } else {
           const err = await res.text();
-          alert('Failed to create event: ' + err);
+          showToast('Failed to create event: ' + (err || 'Validation error'), 'error');
         }
       } catch (err) {
-        alert('Connection error when creating event.');
+        showToast('Connection error when creating event.', 'error');
       } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Save & Launch Event';
