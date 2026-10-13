@@ -32,6 +32,8 @@ func MigrateDB(pool *pgxpool.Pool) error {
 	ALTER TABLE rsvps ADD COLUMN IF NOT EXISTS decline_reason TEXT DEFAULT '';
 	ALTER TABLE rsvps ADD COLUMN IF NOT EXISTS dietary VARCHAR(100) DEFAULT '';
 
+	ALTER TABLE rsvps ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+
 	CREATE TABLE IF NOT EXISTS admin_users (
 		id SERIAL PRIMARY KEY,
 		username VARCHAR(50) UNIQUE NOT NULL,
@@ -45,6 +47,11 @@ func MigrateDB(pool *pgxpool.Pool) error {
 		expires_at TIMESTAMPTZ NOT NULL,
 		created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 	);
+
+	CREATE INDEX IF NOT EXISTS idx_rsvps_event_id ON rsvps(event_id);
+	CREATE INDEX IF NOT EXISTS idx_rsvps_attending ON rsvps(attending);
+	CREATE INDEX IF NOT EXISTS idx_events_slug ON events(slug);
+	CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires ON admin_sessions(expires_at);
 	`
 	if _, err := pool.Exec(ctx, query); err != nil {
 		return err
