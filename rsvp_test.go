@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-func setupTestServer(t *testing.T) (*httptest.Server, func()) {
+func setupTestServer(t *testing.T) (*httptest.Server, *Server, func()) {
 	t.Helper()
 
 	connStr := os.Getenv("DATABASE_URL")
@@ -59,7 +59,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, func()) {
 	mux.HandleFunc("POST /admin/logout", srv.HandleAdminLogout)
 	mux.HandleFunc("GET /admin/me", srv.HandleAdminMe)
 
-	handler := recoverMiddleware(TracingMiddleware(LoggingMiddleware(mux)))
+	handler := recoverMiddleware(SecurityHeadersMiddleware(TracingMiddleware(LoggingMiddleware(mux))))
 	ts := httptest.NewServer(handler)
 
 	teardown := func() {
@@ -67,15 +67,33 @@ func setupTestServer(t *testing.T) (*httptest.Server, func()) {
 		pool.Close()
 	}
 
-	return ts, teardown
+	return ts, srv, teardown
 }
 
 func boolPtr(b bool) *bool {
 	return &b
 }
 
+func loginTestAdmin(t *testing.T, client *http.Client, baseURL string) string {
+	t.Helper()
+	goodLogin := `{"username":"admin","password":"admin123"}`
+	resp, err := client.Post(baseURL+"/admin/login", "application/json", strings.NewReader(goodLogin))
+	if err != nil {
+		t.Fatalf("Failed to login test admin: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected 200 for test admin login, got %d", resp.StatusCode)
+	}
+	var res AdminLoginResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		t.Fatalf("Failed to decode login response: %v", err)
+	}
+	return res.Token
+}
+
 func TestE2E_RSVPSuite(t *testing.T) {
-	ts, teardown := setupTestServer(t)
+	ts, srv, teardown := setupTestServer(t)
 	defer teardown()
 
 	client := ts.Client()
@@ -103,9 +121,23 @@ func TestE2E_RSVPSuite(t *testing.T) {
 	})
 
 	t.Run("Empty Database Reads", func(t *testing.T) {
-		resp, err := client.Get(ts.URL + "/rsvp")
+		// Unauthenticated GET /rsvp must be rejected with 401 Unauthorized
+		unauthResp, err := client.Get(ts.URL + "/rsvp")
 		if err != nil {
 			t.Fatalf("GET /rsvp failed: %v", err)
+		}
+		unauthResp.Body.Close()
+		if unauthResp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("Expected 401 for unauthenticated GET /rsvp, got %d", unauthResp.StatusCode)
+		}
+
+		adminToken := loginTestAdmin(t, client, ts.URL)
+		req, _ := http.NewRequest(http.MethodGet, ts.URL+"/rsvp", nil)
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("GET /rsvp with auth failed: %v", err)
 		}
 		defer resp.Body.Close()
 
@@ -351,7 +383,11 @@ func TestE2E_RSVPSuite(t *testing.T) {
 	})
 
 	t.Run("Pagination and Ordering", func(t *testing.T) {
-		resp, err := client.Get(ts.URL + "/rsvp?limit=2&offset=0")
+		adminToken := loginTestAdmin(t, client, ts.URL)
+		req1, _ := http.NewRequest(http.MethodGet, ts.URL+"/rsvp?limit=2&offset=0", nil)
+		req1.Header.Set("Authorization", "Bearer "+adminToken)
+
+		resp, err := client.Do(req1)
 		if err != nil {
 			t.Fatalf("Failed to get paginated RSVPs: %v", err)
 		}
@@ -367,7 +403,10 @@ func TestE2E_RSVPSuite(t *testing.T) {
 			t.Fatalf("Expected records ordered by created_at DESC (3, 2), got (%d, %d)", p1[0].ID, p1[1].ID)
 		}
 
-		respOffset, err := client.Get(ts.URL + "/rsvp?limit=2&offset=2")
+		req2, _ := http.NewRequest(http.MethodGet, ts.URL+"/rsvp?limit=2&offset=2", nil)
+		req2.Header.Set("Authorization", "Bearer "+adminToken)
+
+		respOffset, err := client.Do(req2)
 		if err != nil {
 			t.Fatalf("Failed to get offset RSVPs: %v", err)
 		}
@@ -402,7 +441,11 @@ func TestE2E_RSVPSuite(t *testing.T) {
 
 		wg.Wait()
 
-		resp, err := client.Get(ts.URL + "/rsvp")
+		adminToken := loginTestAdmin(t, client, ts.URL)
+		reqList, _ := http.NewRequest(http.MethodGet, ts.URL+"/rsvp", nil)
+		reqList.Header.Set("Authorization", "Bearer "+adminToken)
+
+		resp, err := client.Do(reqList)
 		if err != nil {
 			t.Fatalf("Failed to list RSVPs after race: %v", err)
 		}
@@ -565,6 +608,44 @@ func TestE2E_RSVPSuite(t *testing.T) {
 			t.Fatalf("Unexpected created event: %+v", createdEv)
 		}
 
+		// Duplicate slug creation must return 409 Conflict (QA fix)
+		dupReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/events", bytes.NewReader(b))
+		dupReq.Header.Set("Content-Type", "application/json")
+		dupReq.Header.Set("Authorization", "Bearer "+loginData.Token)
+		dupResp, err := client.Do(dupReq)
+		if err != nil {
+			t.Fatalf("Failed duplicate event creation: %v", err)
+		}
+		dupResp.Body.Close()
+		if dupResp.StatusCode != http.StatusConflict {
+			t.Fatalf("Expected 409 Conflict for duplicate event slug, got %d", dupResp.StatusCode)
+		}
+
+		// Empty title creation must return 400 Bad Request
+		emptyTitleEv := CreateEventRequest{Title: "   "}
+		bEmpty, _ := json.Marshal(emptyTitleEv)
+		emptyReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/events", bytes.NewReader(bEmpty))
+		emptyReq.Header.Set("Content-Type", "application/json")
+		emptyReq.Header.Set("Authorization", "Bearer "+loginData.Token)
+		emptyResp, err := client.Do(emptyReq)
+		if err != nil {
+			t.Fatalf("Failed empty title event creation: %v", err)
+		}
+		emptyResp.Body.Close()
+		if emptyResp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("Expected 400 Bad Request for empty title, got %d", emptyResp.StatusCode)
+		}
+
+		// Invalid event id in detail request must return 400 Bad Request
+		badDetailResp, err := client.Get(ts.URL + "/events/detail?id=-99")
+		if err != nil {
+			t.Fatalf("Failed to query invalid event id: %v", err)
+		}
+		badDetailResp.Body.Close()
+		if badDetailResp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("Expected 400 Bad Request for negative event id, got %d", badDetailResp.StatusCode)
+		}
+
 		// 2. Fetch Event Detail
 		detailResp, err := client.Get(ts.URL + "/events/detail?slug=annual-gala-2026")
 		if err != nil {
@@ -648,6 +729,101 @@ func TestE2E_RSVPSuite(t *testing.T) {
 		}
 	})
 
+	t.Run("Security Headers Enforcement", func(t *testing.T) {
+		resp, err := client.Get(ts.URL + "/healthz")
+		if err != nil {
+			t.Fatalf("Failed to request healthz: %v", err)
+		}
+		resp.Body.Close()
+
+		if resp.Header.Get("X-Content-Type-Options") != "nosniff" {
+			t.Errorf("Expected X-Content-Type-Options nosniff, got %s", resp.Header.Get("X-Content-Type-Options"))
+		}
+		if resp.Header.Get("X-Frame-Options") != "DENY" {
+			t.Errorf("Expected X-Frame-Options DENY, got %s", resp.Header.Get("X-Frame-Options"))
+		}
+		if resp.Header.Get("Referrer-Policy") != "strict-origin-when-cross-origin" {
+			t.Errorf("Expected Referrer-Policy strict-origin-when-cross-origin, got %s", resp.Header.Get("Referrer-Policy"))
+		}
+		if !strings.Contains(resp.Header.Get("Content-Security-Policy"), "default-src 'self'") {
+			t.Errorf("Expected Content-Security-Policy default-src 'self', got %s", resp.Header.Get("Content-Security-Policy"))
+		}
+	})
+
+	t.Run("Path Traversal and File Inclusion Prevention", func(t *testing.T) {
+		traversalReqs := []string{
+			"/static/../main.go",
+			"/static/../go.mod",
+			"/static/../../etc/passwd",
+			"/static/..%2fmain.go",
+		}
+		for _, target := range traversalReqs {
+			req, _ := http.NewRequest(http.MethodGet, ts.URL+target, nil)
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatalf("Failed request for traversal %s: %v", target, err)
+			}
+			resp.Body.Close()
+			if resp.StatusCode != http.StatusNotFound {
+				t.Errorf("Expected 404 for traversal path %s, got %d", target, resp.StatusCode)
+			}
+		}
+	})
+
+	t.Run("Referenced Event Integrity Validation", func(t *testing.T) {
+		invalidEventID := 999999
+		payload := CreateRSVPRequest{
+			EventID:   &invalidEventID,
+			Name:      "Ghost Guest",
+			Email:     "ghost@example.com",
+			Attending: boolPtr(true),
+		}
+		b, _ := json.Marshal(payload)
+		resp, err := client.Post(ts.URL+"/rsvp", "application/json", bytes.NewReader(b))
+		if err != nil {
+			t.Fatalf("Failed to post invalid event rsvp: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			body, _ := io.ReadAll(resp.Body)
+			t.Fatalf("Expected 400 Bad Request for non-existent event_id, got %d. Body: %s", resp.StatusCode, string(body))
+		}
+	})
+
+	t.Run("Rate Limiting Defense", func(t *testing.T) {
+		// Use a dedicated server with a tight rate limiter of 3 requests
+		tightLimiter := NewRateLimiter(3, 10*time.Second)
+		testSrv := &Server{
+			DB:           srv.DB,
+			LoginLimiter: tightLimiter,
+		}
+
+		muxTight := http.NewServeMux()
+		muxTight.HandleFunc("POST /admin/login", testSrv.HandleAdminLogin)
+		tsTight := httptest.NewServer(muxTight)
+		defer tsTight.Close()
+
+		clientTight := tsTight.Client()
+		loginPayload := `{"username":"admin","password":"wrongpassword"}`
+
+		var hitRateLimit bool
+		for i := 0; i < 5; i++ {
+			resp, err := clientTight.Post(tsTight.URL+"/admin/login", "application/json", strings.NewReader(loginPayload))
+			if err != nil {
+				t.Fatalf("Request failed: %v", err)
+			}
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusTooManyRequests {
+				hitRateLimit = true
+				break
+			}
+		}
+
+		if !hitRateLimit {
+			t.Fatal("Expected rate limiter to trigger HTTP 429 Too Many Requests")
+		}
+	})
 }
 
 func TestHandleIndex(t *testing.T) {
