@@ -150,6 +150,25 @@
       color: rgba(255, 255, 255, 0.32);
     }
 
+    /* WebKit / Blink Autofill normalization:
+       Use seamless transparent background and crisp white text, completely eliminating any dark green or yellow inset background */
+    .dark-form-input:-webkit-autofill,
+    .dark-form-input:-webkit-autofill:hover,
+    .dark-form-input:-webkit-autofill:focus,
+    .dark-form-input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+      box-shadow: 0 0 0 1000px transparent inset !important;
+      -webkit-text-fill-color: #ffffff !important;
+      caret-color: #ffffff !important;
+      background-color: transparent !important;
+      transition: background-color 5000000s ease-in-out 0s, color 5000000s ease-in-out 0s;
+    }
+
+    .dark-form-input:autofill {
+      color: #ffffff !important;
+      background-color: transparent !important;
+    }
+
     .password-input-row {
       display: flex;
       align-items: center;
