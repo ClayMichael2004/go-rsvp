@@ -100,9 +100,28 @@
       text-align: left;
     }
 
+    .login-inputs-group {
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      overflow: hidden;
+      transition: border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .login-inputs-group:focus-within {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.32);
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+    }
+
     .dark-form-group {
-      margin-bottom: 24px;
+      padding: 13px 16px 11px;
       position: relative;
+      transition: background-color 0.2s ease;
+    }
+
+    .dark-form-group:not(:last-child) {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
     }
 
     .dark-form-label {
@@ -111,29 +130,52 @@
       font-weight: 600;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: #8ea7a3;
-      margin-bottom: 8px;
+      color: #9cb5b1;
+      margin-bottom: 4px;
+      user-select: none;
     }
 
     .dark-form-input {
       width: 100%;
       background: transparent;
       border: none;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.28);
-      padding: 10px 0;
-      font-family: 'Inter', sans-serif;
-      font-size: 15px;
+      padding: 4px 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 14.5px;
       color: #ffffff;
-      transition: border-color 0.2s ease;
-    }
-
-    .dark-form-input:focus {
       outline: none;
-      border-bottom-color: #52b788;
     }
 
     .dark-form-input::placeholder {
-      color: rgba(255, 255, 255, 0.25);
+      color: rgba(255, 255, 255, 0.32);
+    }
+
+    .password-input-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .password-toggle-btn {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 4px;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #a4bebb;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+
+    .password-toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.22);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.35);
     }
 
     .dark-submit-btn {
@@ -991,14 +1033,24 @@
         <div id="loginErrorMsg" class="login-error-badge"></div>
 
         <form id="adminLoginForm">
-          <div class="dark-form-group">
-            <label class="dark-form-label" for="adminUsername">USERNAME</label>
-            <input type="text" id="adminUsername" class="dark-form-input" required autocomplete="username">
-          </div>
+          <div class="login-inputs-group">
+            <div class="dark-form-group">
+              <label class="dark-form-label" for="adminUsername">USERNAME</label>
+              <input type="text" id="adminUsername" class="dark-form-input" placeholder="Enter username" required autocomplete="username">
+            </div>
 
-          <div class="dark-form-group">
-            <label class="dark-form-label" for="adminPassword">PASSWORD</label>
-            <input type="password" id="adminPassword" class="dark-form-input" required autocomplete="current-password">
+            <div class="dark-form-group">
+              <label class="dark-form-label" for="adminPassword">PASSWORD</label>
+              <div class="password-input-row">
+                <input type="password" id="adminPassword" class="dark-form-input" placeholder="Enter password" required autocomplete="current-password">
+                <button type="button" class="password-toggle-btn" id="togglePasswordBtn" title="Show or hide password">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
 
           <button type="submit" class="dark-submit-btn" id="loginSubmitBtn">Login</button>
@@ -1482,6 +1534,19 @@
       adminLoginView.style.display = 'none';
       adminDashboardView.style.display = 'flex';
       loadEvents();
+    }
+
+    // Password visibility toggle
+    const togglePasswordBtn = document.getElementById('togglePasswordBtn');
+    if (togglePasswordBtn) {
+      togglePasswordBtn.addEventListener('click', () => {
+        const passInput = document.getElementById('adminPassword');
+        if (passInput) {
+          const isPass = passInput.type === 'password';
+          passInput.type = isPass ? 'text' : 'password';
+          togglePasswordBtn.title = isPass ? 'Hide password' : 'Show or hide password';
+        }
+      });
     }
 
     // 2. Login Submission
