@@ -21,7 +21,7 @@
       min-height: 100vh;
       display: flex;
       justify-content: center;
-      padding: 56px 20px 80px;
+      padding: 28px 20px 48px;
     }
 
     .container {
@@ -33,12 +33,12 @@
     /* Header styling matching rsvp1.jpg with green outline and no hearts */
     .header-section {
       text-align: center;
-      margin-bottom: 44px;
+      margin-bottom: 24px;
     }
 
     .rsvp-title {
       font-family: 'Oswald', sans-serif;
-      font-size: 80px;
+      font-size: 74px;
       font-weight: 500;
       letter-spacing: 4px;
       text-transform: uppercase;
@@ -54,7 +54,7 @@
       width: 120px;
       height: 1px;
       background-color: #d8deda;
-      margin: 18px auto 0;
+      margin: 14px auto 0;
     }
 
     /* Form and fieldsets */
@@ -64,9 +64,9 @@
 
     .rsvp-box {
       border: 1px solid #dcdcdc;
-      border-radius: 2px;
-      padding: 24px 28px 28px;
-      margin-bottom: 26px;
+      border-radius: 4px;
+      padding: 20px 24px 22px;
+      margin-bottom: 18px;
       background-color: #ffffff;
     }
 
@@ -86,7 +86,6 @@
       color: #444444;
     }
 
-    
     /* Event Info Header */
     .event-info-banner {
       text-align: center;
@@ -110,21 +109,24 @@
 
     .form-textarea {
       width: 100%;
-      background-color: #f7f7f7;
-      border: 1px solid #e7e7e7;
-      border-radius: 2px;
-      padding: 8px 12px;
+      background-color: #fafbfa;
+      border: 1px solid #d0d7d3;
+      border-radius: 4px;
+      padding: 10px 14px;
       font-family: 'Inter', sans-serif;
-      font-size: 13px;
-      color: #333333;
+      font-size: 13.5px;
+      line-height: 1.5;
+      color: #2c332e;
+      min-height: 68px;
       resize: vertical;
-      transition: border-color 0.15s ease, background-color 0.15s ease;
+      transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
     }
 
     .form-textarea:focus {
       outline: none;
       background-color: #ffffff;
       border-color: #2d6a4f;
+      box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.12);
     }
 
     .decline-reason-container {
@@ -209,26 +211,27 @@
 
     .form-input {
       width: 100%;
-      height: 38px;
-      background-color: #f7f7f7;
-      border: 1px solid #e7e7e7;
-      border-radius: 2px;
-      padding: 8px 12px;
+      height: 40px;
+      background-color: #fafbfa;
+      border: 1px solid #d4dad6;
+      border-radius: 4px;
+      padding: 9px 12px;
       font-family: 'Inter', sans-serif;
-      font-size: 13px;
-      color: #333333;
-      transition: border-color 0.15s ease, background-color 0.15s ease;
+      font-size: 13.5px;
+      color: #2c332e;
+      transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
     }
 
     .form-input::placeholder {
-      color: #b0b5b1;
-      font-size: 12.5px;
+      color: #9ea8a2;
+      font-size: 13px;
     }
 
     .form-input:focus {
       outline: none;
       background-color: #ffffff;
       border-color: #2d6a4f;
+      box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.12);
     }
 
     /* Box 2: Attendance */
@@ -236,7 +239,7 @@
       display: flex;
       justify-content: space-around;
       align-items: center;
-      padding: 20px 20px 10px;
+      padding: 14px 20px 8px;
     }
 
     .attendance-option {
@@ -277,6 +280,10 @@
       box-shadow: inset 0 0 0 4px #ffffff;
     }
 
+    .attendance-option input[type="radio"]:focus-visible + .radio-circle {
+      box-shadow: inset 0 0 0 4px #ffffff, 0 0 0 3px rgba(45, 106, 79, 0.25);
+    }
+
     .attendance-label {
       font-family: 'Lora', Georgia, serif;
       font-size: 14.5px;
@@ -297,24 +304,25 @@
 
     .rsvp-select {
       width: 100%;
-      height: 38px;
-      background: linear-gradient(to bottom, #ffffff 0%, #fbfbfb 100%);
-      border: 1px solid #d5dad6;
-      border-radius: 2px;
+      height: 40px;
+      background: linear-gradient(to bottom, #ffffff 0%, #fafbfa 100%);
+      border: 1px solid #d4dad6;
+      border-radius: 4px;
       padding: 8px 30px 8px 12px;
       font-family: 'Inter', sans-serif;
-      font-size: 13px;
-      color: #333333;
+      font-size: 13.5px;
+      color: #2c332e;
       appearance: none;
       -webkit-appearance: none;
       -moz-appearance: none;
       cursor: pointer;
-      transition: border-color 0.15s ease;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
     .rsvp-select:focus {
       outline: none;
       border-color: #2d6a4f;
+      box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.12);
     }
 
     .rsvp-select:disabled {
@@ -549,7 +557,7 @@
           <legend class="box-legend">Will you be attending?</legend>
           <div class="attendance-container">
             <label class="attendance-option" for="attendingYes">
-              <input type="radio" id="attendingYes" name="attending" value="true" required>
+              <input type="radio" id="attendingYes" name="attending" value="true" checked required>
               <span class="radio-circle"></span>
               <span class="attendance-label">Accepts with Pleasure!</span>
             </label>
@@ -645,8 +653,13 @@
     const guestFieldsList = document.getElementById('guestFieldsList');
 
     function escapeHtml(str) {
-      if (!str) return '';
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
 
     async function checkEventFromUrl() {
@@ -683,6 +696,7 @@
       thankYouView.style.display = 'none';
       rsvpView.style.display = 'block';
       form.reset();
+      attendingYes.checked = true;
       updateAttendance();
       submitBtn.disabled = false;
       submitBtn.querySelector('span').textContent = 'SEND';
@@ -754,15 +768,18 @@
     }
 
     function updateAttendance() {
+      const guestsSection = document.getElementById('guestsSection');
       if (attendingNo.checked) {
         declineReasonContainer.style.display = 'block';
         guestsCountSelect.value = "0";
         guestsCountSelect.disabled = true;
+        if (guestsSection) guestsSection.style.opacity = '0.5';
         headcountDisplay.textContent = "0 Attendees (Declined)";
         updateGuestInputs();
       } else {
         declineReasonContainer.style.display = 'none';
         guestsCountSelect.disabled = false;
+        if (guestsSection) guestsSection.style.opacity = '1';
         const count = parseInt(guestsCountSelect.value, 10) || 0;
         if (count === 0) {
           headcountDisplay.textContent = "1 Attendee (You)";
