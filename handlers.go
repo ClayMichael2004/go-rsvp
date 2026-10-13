@@ -59,6 +59,18 @@ func slugify(title string) string {
 	return s + "-" + randSuffix
 }
 
+func sanitizeString(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' || r == '\t' {
+			return r
+		}
+		if r < 32 || r == 127 {
+			return -1
+		}
+		return r
+	}, s)
+}
+
 func (s *Server) GetAuthenticatedAdmin(r *http.Request) (*AdminUser, error) {
 	var token string
 	if cookie, err := r.Cookie("admin_session"); err == nil && cookie.Value != "" {
@@ -571,7 +583,7 @@ func (s *Server) HandleCreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Title = strings.TrimSpace(req.Title)
+	req.Title = sanitizeString(strings.TrimSpace(req.Title))
 	if req.Title == "" {
 		http.Error(w, "Event title is required", http.StatusBadRequest)
 		return
@@ -581,7 +593,7 @@ func (s *Server) HandleCreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Slug = strings.TrimSpace(req.Slug)
+	req.Slug = sanitizeString(strings.TrimSpace(req.Slug))
 	if req.Slug == "" {
 		req.Slug = slugify(req.Title)
 	} else {
@@ -597,14 +609,45 @@ func (s *Server) HandleCreateEvent(w http.ResponseWriter, r *http.Request) {
 			req.Slug = slugify(req.Title)
 		}
 	}
+	if len(req.Slug) > 100 {
+		http.Error(w, "Event slug cannot exceed 100 characters", http.StatusBadRequest)
+		return
+	}
 
-	req.Description = strings.TrimSpace(req.Description)
-	req.EventDate = strings.TrimSpace(req.EventDate)
-	req.Location = strings.TrimSpace(req.Location)
-	req.RespondBy = strings.TrimSpace(req.RespondBy)
+	req.Description = sanitizeString(strings.TrimSpace(req.Description))
+	if len(req.Description) > 2000 {
+		http.Error(w, "Event description cannot exceed 2000 characters", http.StatusBadRequest)
+		return
+	}
+
+	req.EventDate = sanitizeString(strings.TrimSpace(req.EventDate))
+	if len(req.EventDate) > 100 {
+		http.Error(w, "Event date cannot exceed 100 characters", http.StatusBadRequest)
+		return
+	}
+
+	req.Location = sanitizeString(strings.TrimSpace(req.Location))
+	if len(req.Location) > 200 {
+		http.Error(w, "Event location cannot exceed 200 characters", http.StatusBadRequest)
+		return
+	}
+
+	req.RespondBy = sanitizeString(strings.TrimSpace(req.RespondBy))
+	if len(req.RespondBy) > 100 {
+		http.Error(w, "Respond-by deadline cannot exceed 100 characters", http.StatusBadRequest)
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
+
+	// Check slug uniqueness
+	var slugExists bool
+	slugCheckErr := s.DB.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM events WHERE slug = $1);", req.Slug).Scan(&slugExists)
+	if slugCheckErr == nil && slugExists {
+		http.Error(w, "An event with this URL slug already exists. Please choose a different slug.", http.StatusConflict)
+		return
+	}
 
 	query := `
 		INSERT INTO events (title, slug, description, event_date, location, respond_by, created_at)
