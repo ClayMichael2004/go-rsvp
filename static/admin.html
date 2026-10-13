@@ -199,41 +199,135 @@
 
     .dark-submit-btn {
       width: 100%;
-      background-color: #9cb3af;
+      background-color: #92aba6;
       color: #172625;
       border: none;
       border-radius: 4px;
-      padding: 12px;
+      padding: 13px;
       font-family: 'Inter', sans-serif;
       font-size: 14.5px;
       font-weight: 600;
+      letter-spacing: 0.02em;
       cursor: pointer;
-      margin-top: 14px;
-      transition: all 0.2s ease;
+      margin-top: 24px;
+      transition: all 0.25s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
     .dark-submit-btn:hover {
-      background-color: #b5ccc8;
+      background-color: #acc5c0;
       color: #0f1c1b;
       transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+    }
+
+    .dark-submit-btn:active {
+      transform: translateY(0);
     }
 
     .dark-submit-btn:disabled {
-      opacity: 0.6;
+      opacity: 0.7;
       cursor: not-allowed;
       transform: none;
     }
 
-    .login-error-badge {
+    .dark-submit-btn.btn-success {
+      background-color: #2d6a4f !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 16px rgba(45, 106, 79, 0.35);
+    }
+
+    /* Login In-flight Status & Friendly Feedback Badge */
+    .login-feedback-badge {
       display: none;
-      background-color: rgba(220, 53, 69, 0.2);
-      border: 1px solid rgba(220, 53, 69, 0.45);
-      color: #ffb4ba;
-      border-radius: 4px;
-      padding: 10px 14px;
-      font-size: 13px;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 13.5px;
+      font-weight: 500;
+      line-height: 1.4;
       margin-bottom: 20px;
       text-align: center;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .login-feedback-badge.is-loading {
+      display: flex;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      color: #e2edea;
+      animation: feedbackFadeIn 0.25s ease-out;
+    }
+
+    .login-feedback-badge.is-success {
+      display: flex;
+      background: rgba(45, 106, 79, 0.32);
+      border: 1px solid rgba(74, 222, 128, 0.45);
+      color: #86efac;
+      animation: feedbackFadeIn 0.25s ease-out;
+    }
+
+    .login-feedback-badge.is-error {
+      display: flex;
+      background: rgba(220, 53, 69, 0.2);
+      border: 1px solid rgba(248, 113, 113, 0.45);
+      color: #fca5a5;
+      animation: feedbackShake 0.4s ease-in-out;
+    }
+
+    @keyframes feedbackFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes feedbackShake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-5px); }
+      40%, 80% { transform: translateX(5px); }
+    }
+
+    /* Animated status spinners */
+    .feedback-spinner {
+      width: 15px;
+      height: 15px;
+      border: 2px solid rgba(255, 255, 255, 0.28);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spinFeedback 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    .btn-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(23, 38, 37, 0.25);
+      border-top-color: #172625;
+      border-radius: 50%;
+      animation: spinFeedback 0.8s linear infinite;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+
+    .btn-spinner-white {
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      border-top-color: #ffffff;
+    }
+
+    @keyframes spinFeedback {
+      to { transform: rotate(360deg); }
     }
 
     /* ============================================================
@@ -1049,7 +1143,7 @@
       </div>
 
       <div class="login-form-box">
-        <div id="loginErrorMsg" class="login-error-badge"></div>
+        <div id="loginFeedback" class="login-feedback-badge" role="status" aria-live="polite"></div>
 
         <form id="adminLoginForm">
           <div class="login-inputs-group">
@@ -1408,8 +1502,46 @@
 
     // Login Elements
     const adminLoginForm = document.getElementById('adminLoginForm');
-    const loginErrorMsg = document.getElementById('loginErrorMsg');
+    const loginFeedback = document.getElementById('loginFeedback');
     const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+
+    // UI Feedback Helper
+    function showLoginFeedback(type, text) {
+      if (!loginFeedback) return;
+      loginFeedback.className = 'login-feedback-badge';
+      if (!type) {
+        loginFeedback.style.display = 'none';
+        loginFeedback.innerHTML = '';
+        return;
+      }
+
+      if (type === 'loading') {
+        loginFeedback.classList.add('is-loading');
+        loginFeedback.innerHTML = `
+          <div class="feedback-spinner"></div>
+          <span>${escapeHtml(text || 'Authenticating credentials...')}</span>
+        `;
+      } else if (type === 'success') {
+        loginFeedback.classList.add('is-success');
+        loginFeedback.innerHTML = `
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          <span>${escapeHtml(text || 'Login successful! Welcome back.')}</span>
+        `;
+      } else if (type === 'error') {
+        loginFeedback.classList.add('is-error');
+        loginFeedback.innerHTML = `
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>${escapeHtml(text || 'Invalid credentials. Please try again.')}</span>
+        `;
+      }
+    }
 
     // Profile Dropdown Elements
     const profileBtn = document.getElementById('profileBtn');
@@ -1568,15 +1700,16 @@
       });
     }
 
-    // 2. Login Submission
+    // 2. Login Submission with Status Feedback
     adminLoginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      loginErrorMsg.style.display = 'none';
-      loginSubmitBtn.disabled = true;
-      loginSubmitBtn.textContent = 'Signing in...';
-
       const username = document.getElementById('adminUsername').value.trim();
       const password = document.getElementById('adminPassword').value;
+
+      // In-flight status
+      loginSubmitBtn.disabled = true;
+      loginSubmitBtn.innerHTML = '<span class="btn-spinner"></span> Authenticating...';
+      showLoginFeedback('loading', 'Authenticating credentials, please wait...');
 
       try {
         const res = await fetch('/admin/login', {
@@ -1588,18 +1721,32 @@
         if (res.ok) {
           const data = await res.json();
           dropdownUsername.textContent = data.username || username;
-          adminLoginForm.reset();
-          showDashboard();
+
+          // Friendly success state
+          showLoginFeedback('success', 'Login successful! Welcome back, Admin.');
+          loginSubmitBtn.className = 'dark-submit-btn btn-success';
+          loginSubmitBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 6px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Welcome Back!';
+
+          setTimeout(() => {
+            showDashboard();
+            adminLoginForm.reset();
+            showLoginFeedback(null);
+            loginSubmitBtn.className = 'dark-submit-btn';
+            loginSubmitBtn.disabled = false;
+            loginSubmitBtn.textContent = 'Login';
+          }, 650);
         } else {
           const errText = await res.text();
-          loginErrorMsg.textContent = errText || 'Invalid credentials. Please try again.';
-          loginErrorMsg.style.display = 'block';
+          const friendlyErr = (errText && !errText.includes('<html')) ? errText : 'Invalid username or password. Please try again.';
+          showLoginFeedback('error', friendlyErr);
+          loginSubmitBtn.disabled = false;
+          loginSubmitBtn.className = 'dark-submit-btn';
+          loginSubmitBtn.textContent = 'Login';
         }
       } catch (err) {
-        loginErrorMsg.textContent = 'Connection error. Please try again.';
-        loginErrorMsg.style.display = 'block';
-      } finally {
+        showLoginFeedback('error', 'Connection error. Please check your network and try again.');
         loginSubmitBtn.disabled = false;
+        loginSubmitBtn.className = 'dark-submit-btn';
         loginSubmitBtn.textContent = 'Login';
       }
     });
