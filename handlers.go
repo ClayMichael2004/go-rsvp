@@ -3,10 +3,13 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/mail"
 	"os"
@@ -22,18 +25,55 @@ import (
 //go:embed static/*
 var staticFS embed.FS
 
+var (
+	defaultLoginLimiter = NewRateLimiter(15, time.Minute)
+	defaultRSVPLimiter  = NewRateLimiter(60, time.Minute)
+	dummyPasswordHash   []byte
+)
+
+func init() {
+	var err error
+	dummyPasswordHash, err = bcrypt.GenerateFromPassword([]byte("dummy-timing-defense-hash"), bcrypt.DefaultCost)
+	if err != nil {
+		slog.Error("dummy_bcrypt_init_failed", slog.String("error", err.Error()))
+	}
+}
+
 type Server struct {
 	DB           *pgxpool.Pool
 	LoginLimiter *RateLimiter
 	RSVPLimiter  *RateLimiter
 }
 
-func NewServer(db *pgxpool.Pool) *Server {
-	return &Server{
-		DB:           db,
-		LoginLimiter: NewRateLimiter(5, 1*time.Minute),
-		RSVPLimiter:  NewRateLimiter(20, 1*time.Minute),
+func (s *Server) getLoginLimiter() *RateLimiter {
+	if s.LoginLimiter != nil {
+		return s.LoginLimiter
 	}
+	return defaultLoginLimiter
+}
+
+func (s *Server) getRSVPLimiter() *RateLimiter {
+	if s.RSVPLimiter != nil {
+		return s.RSVPLimiter
+	}
+	return defaultRSVPLimiter
+}
+
+func hashToken(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
+}
+
+func sanitizeString(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' || r == '\t' {
+			return r
+		}
+		if r < 32 || r == 127 {
+			return -1
+		}
+		return r
+	}, s)
 }
 
 func slugify(title string) string {
@@ -59,18 +99,6 @@ func slugify(title string) string {
 	return s + "-" + randSuffix
 }
 
-func sanitizeString(s string) string {
-	return strings.Map(func(r rune) rune {
-		if r == '\n' || r == '\r' || r == '\t' {
-			return r
-		}
-		if r < 32 || r == 127 {
-			return -1
-		}
-		return r
-	}, s)
-}
-
 func (s *Server) GetAuthenticatedAdmin(r *http.Request) (*AdminUser, error) {
 	var token string
 	if cookie, err := r.Cookie("admin_session"); err == nil && cookie.Value != "" {
@@ -86,6 +114,8 @@ func (s *Server) GetAuthenticatedAdmin(r *http.Request) (*AdminUser, error) {
 		return nil, errors.New("no session token provided")
 	}
 
+	tokenHash := hashToken(token)
+
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
@@ -96,7 +126,7 @@ func (s *Server) GetAuthenticatedAdmin(r *http.Request) (*AdminUser, error) {
 		JOIN admin_users u ON s.admin_id = u.id
 		WHERE s.token = $1 AND s.expires_at > CURRENT_TIMESTAMP;
 	`
-	err := s.DB.QueryRow(ctx, query, token).Scan(&admin.ID, &admin.Username, &admin.CreatedAt)
+	err := s.DB.QueryRow(ctx, query, tokenHash).Scan(&admin.ID, &admin.Username, &admin.CreatedAt)
 	if err != nil {
 		return nil, errors.New("invalid or expired session")
 	}
@@ -109,12 +139,13 @@ func (s *Server) HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
-
-	if s.LoginLimiter != nil && !s.LoginLimiter.Allow(getClientIP(r)) {
-		http.Error(w, "Too many login attempts. Please wait a minute and try again.", http.StatusTooManyRequests)
+	// Apply Rate Limiting to prevent brute-force attacks
+	if !s.getLoginLimiter().Allow(getClientIP(r)) {
+		http.Error(w, "Too many login attempts. Please try again later.", http.StatusTooManyRequests)
 		return
 	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
 
 	var req AdminLoginRequest
 	dec := json.NewDecoder(r.Body)
@@ -139,6 +170,10 @@ func (s *Server) HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	query := `SELECT id, password_hash FROM admin_users WHERE username = $1;`
 	err := s.DB.QueryRow(ctx, query, req.Username).Scan(&adminID, &passwordHash)
 	if err != nil {
+		// Run dummy bcrypt comparison to neutralize username enumeration via timing analysis
+		if dummyPasswordHash != nil {
+			_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(req.Password))
+		}
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		return
 	}
@@ -148,21 +183,27 @@ func (s *Server) HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := generateID() + generateID()
+	rawToken := generateID() + generateID()
+	tokenHash := hashToken(rawToken)
+
 	insertSession := `
 		INSERT INTO admin_sessions (token, admin_id, expires_at, created_at)
 		VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '24 hours', CURRENT_TIMESTAMP);
 	`
-	if _, err := s.DB.Exec(ctx, insertSession, token, adminID); err != nil {
-		http.Error(w, "Failed to create session: "+err.Error(), http.StatusInternalServerError)
+	if _, err := s.DB.Exec(ctx, insertSession, tokenHash, adminID); err != nil {
+		slog.Error("session_creation_failed", slog.String("request_id", GetRequestID(r.Context())), slog.String("error", err.Error()))
+		http.Error(w, "Failed to create session", http.StatusInternalServerError)
 		return
 	}
 
+	isSecure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "admin_session",
-		Value:    token,
+		Value:    rawToken,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   isSecure,
 		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Now().Add(24 * time.Hour),
 	})
@@ -171,7 +212,7 @@ func (s *Server) HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(AdminLoginResponse{
 		Success:  true,
 		Username: req.Username,
-		Token:    token,
+		Token:    rawToken,
 	})
 }
 
@@ -193,16 +234,22 @@ func (s *Server) HandleAdminLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if token != "" {
+		tokenHash := hashToken(token)
 		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		defer cancel()
-		_, _ = s.DB.Exec(ctx, "DELETE FROM admin_sessions WHERE token = $1;", token)
+		_, _ = s.DB.Exec(ctx, "DELETE FROM admin_sessions WHERE token = $1;", tokenHash)
+		// Opportunistically clean up expired sessions
+		_, _ = s.DB.Exec(ctx, "DELETE FROM admin_sessions WHERE expires_at < CURRENT_TIMESTAMP;")
 	}
+
+	isSecure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "admin_session",
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   isSecure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 		Expires:  time.Unix(0, 0),
@@ -238,9 +285,9 @@ func (s *Server) HandleIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	data, err := os.ReadFile("static/index.html")
+	data, err := staticFS.ReadFile("static/index.html")
 	if err != nil {
-		data, err = staticFS.ReadFile("static/index.html")
+		data, err = os.ReadFile("static/index.html")
 		if err != nil {
 			http.Error(w, "Page not found", http.StatusNotFound)
 			return
@@ -256,9 +303,9 @@ func (s *Server) HandleAdmin(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	data, err := os.ReadFile("static/admin.html")
+	data, err := staticFS.ReadFile("static/admin.html")
 	if err != nil {
-		data, err = staticFS.ReadFile("static/admin.html")
+		data, err = os.ReadFile("static/admin.html")
 		if err != nil {
 			http.Error(w, "Admin page not found", http.StatusNotFound)
 			return
@@ -271,15 +318,24 @@ func (s *Server) HandleAdmin(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) HandleStatic(w http.ResponseWriter, r *http.Request) {
 	cleanPath := path.Clean(r.URL.Path)
-	diskPath := strings.TrimPrefix(cleanPath, "/")
-	if data, err := os.ReadFile(diskPath); err == nil {
-		http.ServeContent(w, r, path.Base(diskPath), time.Now(), bytes.NewReader(data))
-		return
-	}
-	data, err := staticFS.ReadFile(strings.TrimPrefix(cleanPath, "/"))
-	if err != nil {
+	if !strings.HasPrefix(cleanPath, "/static/") || strings.Contains(cleanPath, "..") {
 		http.NotFound(w, r)
 		return
+	}
+
+	relPath := strings.TrimPrefix(cleanPath, "/")
+	if !strings.HasPrefix(relPath, "static/") {
+		http.NotFound(w, r)
+		return
+	}
+
+	data, err := staticFS.ReadFile(relPath)
+	if err != nil {
+		data, err = os.ReadFile(relPath)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
 	}
 	http.ServeContent(w, r, path.Base(cleanPath), time.Now(), bytes.NewReader(data))
 }
@@ -290,12 +346,13 @@ func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
-
-	if s.RSVPLimiter != nil && !s.RSVPLimiter.Allow(getClientIP(r)) {
-		http.Error(w, "Rate limit exceeded. Please wait a moment before submitting again.", http.StatusTooManyRequests)
+	// Apply Rate Limiting to prevent RSVP flooding / DoS
+	if !s.getRSVPLimiter().Allow(getClientIP(r)) {
+		http.Error(w, "Too many requests. Please try again later.", http.StatusTooManyRequests)
 		return
 	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
 
 	var req CreateRSVPRequest
 	dec := json.NewDecoder(r.Body)
@@ -316,7 +373,7 @@ func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Name = strings.TrimSpace(req.Name)
+	req.Name = sanitizeString(strings.TrimSpace(req.Name))
 	req.Email = strings.TrimSpace(req.Email)
 
 	if req.Name == "" || req.Email == "" || req.Attending == nil {
@@ -350,13 +407,13 @@ func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Dietary = strings.TrimSpace(req.Dietary)
+	req.Dietary = sanitizeString(strings.TrimSpace(req.Dietary))
 	if len(req.Dietary) > 100 {
 		req.Dietary = req.Dietary[:100]
 	}
 
 	cleanGuests := make([]string, 0)
-	req.DeclineReason = strings.TrimSpace(req.DeclineReason)
+	req.DeclineReason = sanitizeString(strings.TrimSpace(req.DeclineReason))
 	if len(req.DeclineReason) > 500 {
 		req.DeclineReason = req.DeclineReason[:500]
 	}
@@ -371,7 +428,7 @@ func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, g := range req.GuestDetails {
-			trimmed := strings.TrimSpace(g)
+			trimmed := sanitizeString(strings.TrimSpace(g))
 			if trimmed != "" {
 				if len(trimmed) > 200 {
 					trimmed = trimmed[:200]
@@ -385,8 +442,12 @@ func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	// Verify referenced event exists if specified
+	// Verify referenced event exists if EventID is specified
 	if req.EventID != nil {
+		if *req.EventID <= 0 {
+			http.Error(w, "Invalid event_id", http.StatusBadRequest)
+			return
+		}
 		var exists bool
 		checkErr := s.DB.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM events WHERE id = $1);", *req.EventID).Scan(&exists)
 		if checkErr != nil || !exists {
@@ -431,7 +492,8 @@ func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 		rsvp.DeclineReason,
 	).Scan(&rsvp.ID, &rsvp.CreatedAt, &rsvp.UpdatedAt)
 	if err != nil {
-		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+		slog.Error("rsvp_insert_error", slog.String("request_id", GetRequestID(r.Context())), slog.String("error", err.Error()))
+		http.Error(w, "Database error occurred while processing RSVP", http.StatusInternalServerError)
 		return
 	}
 
@@ -478,7 +540,7 @@ func (s *Server) HandleListRSVPs(w http.ResponseWriter, r *http.Request) {
 
 	var eventID *int
 	if eStr := queryValues.Get("event_id"); eStr != "" {
-		if e, err := strconv.Atoi(eStr); err == nil {
+		if e, err := strconv.Atoi(eStr); err == nil && e > 0 {
 			eventID = &e
 		}
 	}
@@ -504,7 +566,8 @@ func (s *Server) HandleListRSVPs(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := s.DB.Query(ctx, query, eventID, attending, limit, offset)
 	if err != nil {
-		http.Error(w, "Failed to query RSVPs: "+err.Error(), http.StatusInternalServerError)
+		slog.Error("rsvps_query_error", slog.String("request_id", GetRequestID(r.Context())), slog.String("error", err.Error()))
+		http.Error(w, "Failed to query RSVPs", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -525,7 +588,8 @@ func (s *Server) HandleListRSVPs(w http.ResponseWriter, r *http.Request) {
 			&item.CreatedAt,
 			&item.UpdatedAt,
 		); err != nil {
-			http.Error(w, "Failed to parse records: "+err.Error(), http.StatusInternalServerError)
+			slog.Error("rsvps_scan_error", slog.String("request_id", GetRequestID(r.Context())), slog.String("error", err.Error()))
+			http.Error(w, "Failed to parse records", http.StatusInternalServerError)
 			return
 		}
 		if item.GuestDetails == nil {
@@ -546,7 +610,7 @@ func (s *Server) HandleRSVPStats(w http.ResponseWriter, r *http.Request) {
 
 	var eventID *int
 	if eStr := r.URL.Query().Get("event_id"); eStr != "" {
-		if e, err := strconv.Atoi(eStr); err == nil {
+		if e, err := strconv.Atoi(eStr); err == nil && e > 0 {
 			eventID = &e
 		}
 	}
@@ -572,7 +636,8 @@ func (s *Server) HandleRSVPStats(w http.ResponseWriter, r *http.Request) {
 		&stats.TotalHeadcount,
 	)
 	if err != nil {
-		http.Error(w, "Failed to compute stats: "+err.Error(), http.StatusInternalServerError)
+		slog.Error("rsvp_stats_query_error", slog.String("request_id", GetRequestID(r.Context())), slog.String("error", err.Error()))
+		http.Error(w, "Failed to compute stats", http.StatusInternalServerError)
 		return
 	}
 
@@ -686,7 +751,8 @@ func (s *Server) HandleCreateEvent(w http.ResponseWriter, r *http.Request) {
 	err := s.DB.QueryRow(ctx, query, event.Title, event.Slug, event.Description, event.EventDate, event.Location, event.RespondBy).
 		Scan(&event.ID, &event.CreatedAt)
 	if err != nil {
-		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+		slog.Error("event_create_error", slog.String("request_id", GetRequestID(r.Context())), slog.String("error", err.Error()))
+		http.Error(w, "Database error occurred while creating event", http.StatusInternalServerError)
 		return
 	}
 
@@ -712,7 +778,8 @@ func (s *Server) HandleListEvents(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := s.DB.Query(ctx, query)
 	if err != nil {
-		http.Error(w, "Failed to query events: "+err.Error(), http.StatusInternalServerError)
+		slog.Error("events_query_error", slog.String("request_id", GetRequestID(r.Context())), slog.String("error", err.Error()))
+		http.Error(w, "Failed to query events", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -730,7 +797,8 @@ func (s *Server) HandleListEvents(w http.ResponseWriter, r *http.Request) {
 			&e.RespondBy,
 			&e.CreatedAt,
 		); err != nil {
-			http.Error(w, "Failed to parse records: "+err.Error(), http.StatusInternalServerError)
+			slog.Error("events_scan_error", slog.String("request_id", GetRequestID(r.Context())), slog.String("error", err.Error()))
+			http.Error(w, "Failed to parse records", http.StatusInternalServerError)
 			return
 		}
 		events = append(events, e)
@@ -777,7 +845,7 @@ func (s *Server) HandleGetEventDetail(w http.ResponseWriter, r *http.Request) {
 		)
 	} else {
 		id, convErr := strconv.Atoi(idStr)
-		if convErr != nil {
+		if convErr != nil || id <= 0 {
 			http.Error(w, "Invalid event id", http.StatusBadRequest)
 			return
 		}
