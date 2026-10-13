@@ -385,6 +385,16 @@ func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
+	// Verify referenced event exists if specified
+	if req.EventID != nil {
+		var exists bool
+		checkErr := s.DB.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM events WHERE id = $1);", *req.EventID).Scan(&exists)
+		if checkErr != nil || !exists {
+			http.Error(w, "Referenced event does not exist", http.StatusBadRequest)
+			return
+		}
+	}
+
 	query := `
 	INSERT INTO rsvps (event_id, name, email, dietary, attending, guests_count, guest_details, decline_reason, created_at, updated_at)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -436,6 +446,12 @@ func (s *Server) HandleListRSVPs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Protect attendee PII - only authenticated administrators can access full RSVP list
+	if _, err := s.GetAuthenticatedAdmin(r); err != nil {
+		http.Error(w, "Unauthorized: Admin login required", http.StatusUnauthorized)
+		return
+	}
+
 	limit := 50
 	offset := 0
 
@@ -452,7 +468,11 @@ func (s *Server) HandleListRSVPs(w http.ResponseWriter, r *http.Request) {
 
 	if oStr := queryValues.Get("offset"); oStr != "" {
 		if o, err := strconv.Atoi(oStr); err == nil && o >= 0 {
-			offset = o
+			if o > 1000000 {
+				offset = 1000000
+			} else {
+				offset = o
+			}
 		}
 	}
 
