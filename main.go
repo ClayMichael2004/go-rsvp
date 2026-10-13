@@ -82,7 +82,7 @@ func main() {
 	pool := initDB()
 	defer pool.Close()
 
-	srv := &Server{DB: pool}
+	srv := NewServer(pool)
 
 	mux := http.NewServeMux()
 

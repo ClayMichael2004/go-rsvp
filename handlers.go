@@ -23,7 +23,17 @@ import (
 var staticFS embed.FS
 
 type Server struct {
-	DB *pgxpool.Pool
+	DB           *pgxpool.Pool
+	LoginLimiter *RateLimiter
+	RSVPLimiter  *RateLimiter
+}
+
+func NewServer(db *pgxpool.Pool) *Server {
+	return &Server{
+		DB:           db,
+		LoginLimiter: NewRateLimiter(5, 1*time.Minute),
+		RSVPLimiter:  NewRateLimiter(20, 1*time.Minute),
+	}
 }
 
 func slugify(title string) string {
@@ -88,6 +98,11 @@ func (s *Server) HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
+
+	if s.LoginLimiter != nil && !s.LoginLimiter.Allow(getClientIP(r)) {
+		http.Error(w, "Too many login attempts. Please wait a minute and try again.", http.StatusTooManyRequests)
+		return
+	}
 
 	var req AdminLoginRequest
 	dec := json.NewDecoder(r.Body)
@@ -264,6 +279,11 @@ func (s *Server) HandleCreateRSVP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
+
+	if s.RSVPLimiter != nil && !s.RSVPLimiter.Allow(getClientIP(r)) {
+		http.Error(w, "Rate limit exceeded. Please wait a moment before submitting again.", http.StatusTooManyRequests)
+		return
+	}
 
 	var req CreateRSVPRequest
 	dec := json.NewDecoder(r.Body)
