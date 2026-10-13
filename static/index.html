@@ -514,15 +514,15 @@
           <div class="grid-2col">
             <div class="form-group">
               <label class="form-label" for="firstName">First Name</label>
-              <input type="text" id="firstName" name="firstName" class="form-input" placeholder="Your first name is required" required autocomplete="given-name">
+              <input type="text" id="firstName" name="firstName" class="form-input" placeholder="Your first name is required" required maxlength="50" autocomplete="given-name">
             </div>
             <div class="form-group">
               <label class="form-label" for="lastName">Last Name</label>
-              <input type="text" id="lastName" name="lastName" class="form-input" placeholder="Your last name is required" required autocomplete="family-name">
+              <input type="text" id="lastName" name="lastName" class="form-input" placeholder="Your last name is required" required maxlength="50" autocomplete="family-name">
             </div>
             <div class="form-group">
               <label class="form-label" for="email">Email</label>
-              <input type="email" id="email" name="email" class="form-input" placeholder="name@yourdomain.com" required autocomplete="email">
+              <input type="email" id="email" name="email" class="form-input" placeholder="name@yourdomain.com" required maxlength="150" autocomplete="email">
             </div>
             <div class="form-group">
               <label class="form-label" for="dietary">Dietary Options</label>
@@ -563,7 +563,7 @@
 
           <div id="declineReasonContainer" class="decline-reason-container" style="display: none;">
             <label class="form-label" for="declineReason">Reason for declining (Optional)</label>
-            <textarea id="declineReason" class="form-textarea" rows="2" placeholder="Let us know why you won't be able to make it (optional)..."></textarea>
+            <textarea id="declineReason" class="form-textarea" rows="2" maxlength="500" placeholder="Let us know why you won't be able to make it (optional)..."></textarea>
           </div>
         </fieldset>
 
@@ -720,15 +720,15 @@
           <div class="grid-2col" style="margin-top: 0; row-gap: 12px; column-gap: 16px;">
             <div class="form-group">
               <label class="form-label" style="font-size: 12.5px;">First Name</label>
-              <input type="text" class="form-input guest-fn" placeholder="Guest first name" value="${escapeHtml(prev.fn)}" required>
+              <input type="text" class="form-input guest-fn" placeholder="Guest first name" value="${escapeHtml(prev.fn)}" required maxlength="50">
             </div>
             <div class="form-group">
               <label class="form-label" style="font-size: 12.5px;">Last Name</label>
-              <input type="text" class="form-input guest-ln" placeholder="Guest last name" value="${escapeHtml(prev.ln)}" required>
+              <input type="text" class="form-input guest-ln" placeholder="Guest last name" value="${escapeHtml(prev.ln)}" required maxlength="50">
             </div>
             <div class="form-group">
               <label class="form-label" style="font-size: 12.5px;">Email</label>
-              <input type="email" class="form-input guest-em" placeholder="guest@example.com (optional)" value="${escapeHtml(prev.em)}">
+              <input type="email" class="form-input guest-em" placeholder="guest@example.com (optional)" value="${escapeHtml(prev.em)}" maxlength="150">
             </div>
             <div class="form-group">
               <label class="form-label" style="font-size: 12.5px;">Dietary Options</label>
@@ -805,6 +805,24 @@
       const email = document.getElementById('email').value.trim();
       const attendingVal = document.querySelector('input[name="attending"]:checked');
 
+      if (!firstName) {
+        alertError.textContent = 'Please enter your first name.';
+        alertError.style.display = 'block';
+        document.getElementById('firstName').focus();
+        return;
+      }
+      if (!lastName) {
+        alertError.textContent = 'Please enter your last name.';
+        alertError.style.display = 'block';
+        document.getElementById('lastName').focus();
+        return;
+      }
+      if (!email) {
+        alertError.textContent = 'Please enter your email address.';
+        alertError.style.display = 'block';
+        document.getElementById('email').focus();
+        return;
+      }
       if (!attendingVal) {
         alertError.textContent = 'Please indicate whether you will be attending.';
         alertError.style.display = 'block';
@@ -819,18 +837,23 @@
       const guestInputs = [];
       if (isAttending && guestsCount > 0) {
         const cards = guestFieldsList.querySelectorAll('.guest-card');
-        cards.forEach(card => {
+        for (let i = 0; i < cards.length; i++) {
+          const card = cards[i];
           const fn = card.querySelector('.guest-fn')?.value.trim() || '';
           const ln = card.querySelector('.guest-ln')?.value.trim() || '';
           const em = card.querySelector('.guest-em')?.value.trim() || '';
           const diet = card.querySelector('.guest-diet')?.value.trim() || '';
-          if (fn || ln) {
-            let desc = `${fn} ${ln}`.trim();
-            if (em) desc += ` (${em})`;
-            if (diet) desc += ` • Dietary: ${diet}`;
-            guestInputs.push(desc);
+          if (!fn && !ln) {
+            alertError.textContent = `Please enter the name for Guest ${i + 1}.`;
+            alertError.style.display = 'block';
+            card.querySelector('.guest-fn')?.focus();
+            return;
           }
-        });
+          let desc = `${fn} ${ln}`.trim();
+          if (em) desc += ` (${em})`;
+          if (diet) desc += ` • Dietary: ${diet}`;
+          guestInputs.push(desc);
+        }
       }
 
       const declineReasonText = !isAttending ? declineReason.value.trim() : '';
