@@ -45,6 +45,14 @@ type Server struct {
 	RSVPLimiter  *RateLimiter
 }
 
+func NewServer(db *pgxpool.Pool) *Server {
+	return &Server{
+		DB:           db,
+		LoginLimiter: defaultLoginLimiter,
+		RSVPLimiter:  defaultRSVPLimiter,
+	}
+}
+
 func (s *Server) getLoginLimiter() *RateLimiter {
 	if s.LoginLimiter != nil {
 		return s.LoginLimiter
