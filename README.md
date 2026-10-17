@@ -42,3 +42,12 @@ psql -h 127.0.0.1 -p 5433 -U michaelochieng0 -d rsvp_db
 ## Stop the Database Server
 pg_ctl -D /home/michaelochieng0/postgres_data stop
 `
+
+### using tailscale
+make sure its running and check the port its running on then rplace it with 8080 if need.
+## serve tailscale to the port
+tailscale serve 8080 : authenticate, connect the the secure ip
+## open a public gateway and serve it to the net
+tailscale funnel 8080 on
+## close/turn it off
+tailscale serve off
